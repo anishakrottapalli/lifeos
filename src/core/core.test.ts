@@ -162,3 +162,15 @@ describe("store", () => {
     expect(store.index.search("dune").map((i) => i.title)).toEqual(["Dune"]);
   });
 });
+
+import { renderMarkdown } from "../ui/markdown";
+describe("notes preview", () => {
+  it("renders the basics and escapes HTML", () => {
+    const html = renderMarkdown("## Ingredients\n- toor dal\n- **tamarind**\n\n1. Boil\n2. Add [link](https://x.com)\n\n<script>alert(1)</script>");
+    expect(html).toContain("<h2>Ingredients</h2>");
+    expect(html).toContain("<ul><li>toor dal</li><li><strong>tamarind</strong></li></ul>");
+    expect(html).toContain("<ol><li>Boil</li>");
+    expect(html).toContain('<a href="https://x.com"');
+    expect(html).not.toContain("<script>");
+  });
+});

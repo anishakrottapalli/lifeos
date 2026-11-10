@@ -18,6 +18,10 @@ The owner is not a coder. Explain changes in plain language, and keep the app mi
 - `src/core/store.ts`: all actions, run one at a time through a queue.
 - `src/ui/*`: React screens. `src/core/storage-memory.ts` is a fake folder for browser previews and tests.
 
+## Older Mac
+
+The owner's MacBook (2014) runs macOS Big Sur with Safari 16.6, which LifeOS's window uses. Some libraries use class methods with private names (`#e() {}`), which that Safari can't parse, giving a blank window. `marked` was removed for this reason; the notes preview is the built-in `src/ui/markdown.ts`. `src/compat.test.ts` fails if a screen library brings that syntax back, so add every new runtime dependency to its list. The build target is es2020.
+
 ## Checks before finishing any change
 
 `npm test`, `npx tsc --noEmit`, `npm run build`, and `cd src-tauri && cargo test`.

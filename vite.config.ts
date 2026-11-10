@@ -7,6 +7,7 @@ export default defineConfig({
   clearScreen: false,
   server: { port: 1420, strictPort: true },
   envPrefix: ["VITE_", "TAURI_"],
-  build: { target: "safari15", outDir: "dist" },
+  // es2020 so older Macs (Safari 16 on macOS Big Sur) can read the code.
+  build: { target: "es2020", outDir: "dist" },
   test: { environment: "node" },
 } as any);

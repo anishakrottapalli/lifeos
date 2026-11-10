@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { marked } from "marked";
 import type { FieldDef, Item } from "../core/types";
 import { dirName, join } from "../core/paths";
 import { displayValue, timeAgo, useStore, type Route } from "./hooks";
 import { LinkPicker } from "./LinkPicker";
+import { renderMarkdown } from "./markdown";
 
 const SAVE_DELAY = 700;
 
@@ -150,7 +150,7 @@ export function ItemView({ itemId, go }: { itemId: string; go: (r: Route) => voi
           </button>
         </div>
         {preview ? (
-          <div className="markdown" dangerouslySetInnerHTML={{ __html: marked.parse(draft.body || "*Nothing written yet.*") as string }} />
+          <div className="markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(draft.body || "*Nothing written yet.*") }} />
         ) : (
           <textarea
             className="body-input"
