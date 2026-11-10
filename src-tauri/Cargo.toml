@@ -1,0 +1,20 @@
+[package]
+name = "lifeos"
+version = "0.1.0"
+description = "LifeOS: your files, organized by what they're for, with everything linked"
+authors = ["Anisha Krottapalli"]
+edition = "2021"
+
+[lib]
+name = "lifeos_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+notify = "6"

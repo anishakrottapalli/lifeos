@@ -1,0 +1,71 @@
+# LifeOS
+
+Your files, organized by what they're for, with everything linked.
+
+LifeOS is a Mac app that sits on top of **one folder, `Documents/LifeOS`**. Everything you add is saved there as normal files you can open in Finder. If LifeOS ever goes away, every file and folder is still there.
+
+## Opening LifeOS on your Mac (first time)
+
+You don't need to know how to code. Open **Claude Code** on your Mac and paste this:
+
+> Clone https://github.com/anishakrottapalli/lifeos into my home folder. Check that I have the Xcode Command Line Tools, Rust (via rustup) and Node.js installed, and install whatever is missing. Then run `npm install` and `npm run app` inside the lifeos folder to open LifeOS.
+
+The first launch takes a few minutes while everything is set up. After that, `npm run app` opens it in seconds.
+
+**To get a real app icon in your Applications folder**, ask Claude Code:
+
+> In my lifeos folder, run `npm run app:build` and copy LifeOS.app from src-tauri/target/release/bundle/macos into my Applications folder.
+
+The first time you open it, macOS may say it's from an unidentified developer. Right-click LifeOS.app → **Open** → **Open**. You only need to do this once.
+
+## How your files are organized
+
+```
+Documents/LifeOS/
+├── Career/Job Tracker/
+├── Content/Saved/ · Content/Creator Studio/
+├── Family/
+├── Finance/
+├── Health/Medical/          ← e.g. Blood Tests/2026-03 Blood Test.md + .pdf
+├── Home/Inventory/
+├── Journal/
+├── Knowledge/Quotes & Tweets/ · Wisdom Drops/ · Courses/ · SOPs/
+├── Library/
+├── Life/Plan/ · Life/To-Do & Routines/
+├── Photos & Videos/
+├── Projects/                ← My Business/Software/…, Personal/…
+├── Recipes/
+├── Wardrobe/
+├── .lifeos/modules.json     ← (hidden) your field changes
+└── .trash/                  ← (hidden) deleted items, recoverable
+```
+
+- **Each item is a Markdown note** (`.md`). Its fields sit at the top, your writing goes underneath. Any notes app can open it.
+- **Attached files sit next to their note** and are **moved, not copied**, in, so there's only ever one copy.
+- **Finder works too.** Add, rename or move files in Finder and LifeOS picks up the change. Files dropped into an app's folder show up under "Loose files", where one click turns them into an item.
+- **Links** between items (in any app) are saved inside the note files, so they survive without the app. Every item shows what links to it under "Linked from".
+- **Deleting** moves things into the hidden `.trash` folder (press ⌘⇧. in Finder to see hidden folders).
+
+## What's in this first version
+
+- All 19 apps, each with its own folder and fields
+- Create, edit, rename and delete items; changes save automatically
+- Fields per app, plus **Fields** to add, remove or reorder them
+- Sub-folders (e.g. `My Business/Software`, `Blood Tests`)
+- Tags, search across everything (⌘K), and two-way links with "Linked from"
+- Attach files (moved into LifeOS), open them, or show them in Finder
+- Loose-file pickup for things added in Finder
+- Settings: choose a different LifeOS folder, reread the folder
+
+Not yet: importing from Notion, the AI Ask boxes, each app's special screens (the Saved Content feed, the routine engine, etc.), the phone app, and syncing the Anywhere folders. Each app becomes its own project after this.
+
+## For Claude Code: how the code is laid out
+
+- `src-tauri/` is the Rust helper: the only part that touches the disk. Every path is relative to the LifeOS folder and can't escape it.
+- `src/core/` holds the logic, with no screens:
+  - `notes.ts`: reading and writing note files
+  - `index.ts`: the in-memory index, rebuilt from the folder
+  - `store.ts`: every action
+  - `modules.ts`: the 19 apps
+- `src/ui/` holds the React screens.
+- `npm test` runs the core tests. `npm run dev` opens a browser preview with sample data (no real files). `cd src-tauri && cargo test` tests the Rust helper.
