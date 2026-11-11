@@ -18,6 +18,19 @@ The first launch takes a few minutes while everything is set up. After that, `np
 
 The first time you open it, macOS may say it's from an unidentified developer. Right-click LifeOS.app → **Open** → **Open**. You only need to do this once.
 
+## Opening and updating LifeOS (after the one-time setup)
+
+- **To open:** click **LifeOS** in Applications or the Dock, like any app.
+- **To update** (only when the app itself changes): double-click **Update LifeOS** in your `lifeos` folder. It gets the newest version, rebuilds, and replaces the app in Applications. Your files in Documents/LifeOS are never touched.
+
+### One-time setup
+
+1. **Install GitHub's helper.** Open github.com/cli/cli/releases/latest, download the file ending in `_macOS_universal.pkg`, and run it.
+2. **Sign in to GitHub on this Mac.** In Terminal: `gh auth login`, then choose **GitHub.com → HTTPS → Yes (authenticate Git) → Login with a web browser**, and enter the code it shows.
+3. **Swap the ZIP copy for a connected copy** (keeps the already-built parts):
+   `cd ~ && mv lifeos lifeos-old && git clone https://github.com/anishakrottapalli/lifeos.git && mv lifeos-old/node_modules lifeos/ && mv lifeos-old/src-tauri/target lifeos/src-tauri/ && mv lifeos-old ~/.Trash/`
+4. **Double-click Update LifeOS** (in Finder, your home folder → lifeos). The first build takes 20–40 minutes, and LifeOS then opens from Applications. Drag it to your Dock. Tip: right-click **Update LifeOS** → **Make Alias**, and put the alias on your Desktop.
+
 ## How your files are organized
 
 ```
