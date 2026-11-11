@@ -25,8 +25,8 @@ The first time you open it, macOS may say it's from an unidentified developer. R
 
 ### One-time setup
 
-1. **Install GitHub's helper.** Open github.com/cli/cli/releases/latest, download the file ending in `_macOS_universal.pkg`, and run it.
-2. **Sign in to GitHub on this Mac.** In Terminal: `gh auth login`, then choose **GitHub.com → HTTPS → Yes (authenticate Git) → Login with a web browser**, and enter the code it shows.
+1. **Make a GitHub access key** (works on macOS Big Sur; the `gh` helper needs macOS 12+). On github.com: profile picture → **Settings** → **Developer settings** → **Personal access tokens** → **Fine-grained tokens** → **Generate new token**. Name: LifeOS Mac · Expiration: the longest option · Repository access: only **lifeos** · Permissions: **Contents: Read-only**. Generate it and copy it (GitHub shows it only once).
+2. **Your Mac remembers it.** In step 3, Terminal asks for a username (`anishakrottapalli`) and a password: paste the key (nothing shows) and press Enter. macOS saves it in the Keychain.
 3. **Swap the ZIP copy for a connected copy** (keeps the already-built parts):
    `cd ~ && mv lifeos lifeos-old && git clone https://github.com/anishakrottapalli/lifeos.git && mv lifeos-old/node_modules lifeos/ && mv lifeos-old/src-tauri/target lifeos/src-tauri/ && mv lifeos-old ~/.Trash/`
 4. **Double-click Update LifeOS** (in Finder, your home folder → lifeos). The first build takes 20–40 minutes, and LifeOS then opens from Applications. Drag it to your Dock. Tip: right-click **Update LifeOS** → **Make Alias**, and put the alias on your Desktop.
