@@ -6,7 +6,7 @@ import type { BoardCard, Entry, FieldDef, Item, ModuleDef } from "./types";
 import type { Storage } from "./storage";
 import { DEFAULT_MODULES, applyOverrides, type ModuleOverrides } from "./modules";
 import { LifeIndex } from "./index";
-import { serializeBoard, serializeItem } from "./notes";
+import { serializeItem } from "./notes";
 import { newId } from "./ids";
 import {
   ALL_PART_KEYS,
@@ -28,6 +28,7 @@ import {
   isNote,
   isBoardFile,
   BOARD_FILE,
+  projectFile,
   join,
   nowStamp,
   safeFolder,
@@ -254,8 +255,8 @@ export class LifeStore {
         this.cache.delete(oldPath);
       }
     }
+    if (item.kind === "project") await this.upgradeProjectFile(item);
     await this.writeNote(item.path, serializeItem(item, mod));
-    if (item.kind === "project" && item.board) await this.writeBoard(item);
     await this.rescanNow();
     return this.index.items.get(item.id) ?? item;
   }
@@ -415,7 +416,7 @@ export class LifeStore {
       const dir = join(parentDir, name);
       const rel = dir.slice(mod.folder.length).replace(/^\//, "");
       const body = parts.includes(OVERVIEW_KEY) ? OVERVIEW_TEMPLATE : "";
-      const main = this.blankItem(mod.id, "project", title.trim() || name, join(dir, `${name}.md`), body, rel);
+      const main = this.blankItem(mod.id, "project", title.trim() || name, join(dir, projectFile(name)), body, rel);
       main.fields = { Status: "Idea", ...fields };
       await this.writeNote(main.path, serializeItem(main, mod));
       this.index.entries.push({ path: main.path, mtime: Date.now(), size: 0 });
@@ -530,7 +531,6 @@ export class LifeStore {
       const mod = this.projectsModule();
       const oldDir = dirName(project.path);
       const parentDir = join(mod.folder, safeFolder(parentFolder));
-      const oldName = fileName(oldDir);
       let name = safeName(title);
       let newDir = join(parentDir, name);
       if (newDir === oldDir || newDir.startsWith(oldDir + "/")) {
@@ -541,16 +541,16 @@ export class LifeStore {
         await this.storage.renameDir(oldDir, newDir);
       }
       let path = join(newDir, fileName(project.path));
-      const wanted = join(newDir, `${name}.md`);
-      if (path !== wanted && fileName(project.path) === `${oldName}.md`) {
+      const wanted = join(newDir, projectFile(name));
+      if (path !== wanted) {
         await this.storage.move(path, wanted);
         path = wanted;
       }
+      await this.trashOldBoard(newDir);
       for (const p of [...this.cache.keys()]) if (p.startsWith(oldDir + "/")) this.cache.delete(p);
       const rel = newDir.slice(mod.folder.length).replace(/^\//, "");
       const saved: Item = { ...project, title: title.trim() || name, path, folder: rel, updated: nowStamp() };
       await this.writeNote(path, serializeItem(saved, mod));
-      if (saved.board) await this.writeBoard(saved);
       await this.rescanNow();
       return this.index.items.get(project.id) ?? saved;
     });
@@ -570,6 +570,10 @@ export class LifeStore {
         main.fields = { Status: "Idea", ...note.fields };
         main.body = note.body.trim() ? `${note.body.trim()}\n\n${OVERVIEW_TEMPLATE}` : OVERVIEW_TEMPLATE;
         main.folder = dir.slice(mod.folder.length).replace(/^\//, "");
+        const newPath = join(dir, projectFile(fileName(dir)));
+        await this.storage.move(note.path, newPath);
+        this.cache.delete(note.path);
+        main.path = newPath;
         await this.writeNote(main.path, serializeItem(main, mod));
         await this.writeParts(main);
         await this.rescanNow();
@@ -595,11 +599,24 @@ export class LifeStore {
   }
 
   /** Write a note and make sure the next scan rereads it. */
-  /** Save a project's Board layout in projectboard.lifeos (only when there is something to keep). */
-  private async writeBoard(project: Item) {
-    const path = join(dirName(project.path), BOARD_FILE);
-    if (!project.board?.length && !(await this.storage.exists(path))) return;
-    await this.writeNote(path, serializeBoard(project.board ?? []));
+  /** Older projects: the note was "<Name>.md" with the Board in projectboard.lifeos. Make it one "<name>.lifeos" file. */
+  private async upgradeProjectFile(project: Item) {
+    const dir = dirName(project.path);
+    if (!project.path.endsWith(".lifeos")) {
+      const newPath = join(dir, uniqueName(stripExt(projectFile(fileName(dir))), ".lifeos", this.taken(dir, project.path)));
+      await this.storage.move(project.path, newPath);
+      this.cache.delete(project.path);
+      project.path = newPath;
+    }
+    await this.trashOldBoard(dir);
+  }
+
+  private async trashOldBoard(dir: string) {
+    const old = join(dir, BOARD_FILE);
+    if (!(await this.storage.exists(old))) return;
+    const stamp = nowStamp().replace(/[:T]/g, "-");
+    await this.storage.move(old, join(".trash", stamp, old));
+    this.cache.delete(old);
   }
 
   private async writeNote(path: string, text: string) {

@@ -180,13 +180,13 @@ describe("projects", () => {
     const { mem, store } = await fresh();
     const p = await store.createProject("LifeOS", "My Business/Software");
     expect(p.kind).toBe("project");
-    expect(p.path).toBe("Projects/My Business/Software/LifeOS/LifeOS.md");
+    expect(p.path).toBe("Projects/My Business/Software/LifeOS/lifeos.lifeos");
     const parts = store.index.partsOf(p);
     expect(parts.sections.map((s) => s.title)).toEqual([
       "Market Research", "Customer Development", "UI/UX", "Planning", "Marketing", "Operations", "Funding", "Financials", "Deck",
     ]);
     expect(parts.docs?.title).toBe("Documentation");
-    expect(mem.files.get("Projects/My Business/Software/LifeOS/LifeOS.md")?.text).toContain("Lean canvas");
+    expect(mem.files.get("Projects/My Business/Software/LifeOS/lifeos.lifeos")?.text).toContain("Lean canvas");
   });
 
   it("module pages live inside the project and don't get Venture sections", async () => {
@@ -215,7 +215,7 @@ describe("projects", () => {
     const p = await store.createProject("Life OS");
     await store.addModulePage(p, "Recipes", "recipes");
     const moved = await store.moveProject(p, "LifeOS", "My Business/Software");
-    expect(moved.path).toBe("Projects/My Business/Software/LifeOS/LifeOS.md");
+    expect(moved.path).toBe("Projects/My Business/Software/LifeOS/lifeos.lifeos");
     expect(mem.files.has("Projects/My Business/Software/LifeOS/Modules/Recipes.md")).toBe(true);
     expect([...mem.files.keys()].some((k) => k.startsWith("Projects/Life OS/"))).toBe(false);
     expect(store.index.partsOf(moved).modules).toHaveLength(1);
@@ -269,7 +269,7 @@ describe("older project notes", () => {
     await store.saveItem({ ...old, body: "My redesign notes" });
     expect(store.index.looseProjectNotes().map((n) => n.title)).toEqual(["Verzuz"]);
     const p = await store.convertToProject(store.index.looseProjectNotes()[0]);
-    expect(p.path).toBe("Projects/Personal/Verzuz/Verzuz.md");
+    expect(p.path).toBe("Projects/Personal/Verzuz/verzuz.lifeos");
     expect(p.body).toContain("My redesign notes");
     expect(store.index.looseProjectNotes()).toHaveLength(0);
     expect(store.index.partsOf(p).sections).toHaveLength(9);
@@ -283,10 +283,11 @@ describe("turning notes into projects in place", () => {
     mem.dropFile("Projects/My Business/Software/LifeOS.md", "---\ntitle: LifeOS\n---\nOne folder");
     await store.rescan();
     const biz = await store.convertToProject(store.index.byPath.get("Projects/My Business/My Business.md")!);
-    expect(biz.path).toBe("Projects/My Business/My Business.md");
+    expect(biz.path).toBe("Projects/My Business/mybusiness.lifeos");
+    expect(mem.files.has("Projects/My Business/My Business.md")).toBe(false);
     expect(biz.body).toContain("Divisions");
     const life = await store.convertToProject(store.index.byPath.get("Projects/My Business/Software/LifeOS.md")!);
-    expect(life.path).toBe("Projects/My Business/Software/LifeOS/LifeOS.md");
+    expect(life.path).toBe("Projects/My Business/Software/LifeOS/lifeos.lifeos");
     expect(store.index.parentProject(life)?.id).toBe(biz.id);
     expect(store.index.partsOf(biz).subprojects.map((p) => p.title)).toEqual(["LifeOS"]);
   });
@@ -306,7 +307,7 @@ describe("choosing a project's parts and its Board", () => {
     const { mem, store } = await fresh();
     const p = await store.createProject("Handwriting Font", "Personal", {}, []);
     expect([...mem.files.keys()].filter((k) => k.startsWith("Projects/Personal/Handwriting Font/"))).toEqual([
-      "Projects/Personal/Handwriting Font/Handwriting Font.md",
+      "Projects/Personal/Handwriting Font/handwritingfont.lifeos",
     ]);
     expect(p.body.trim()).toBe("");
     await store.addPart(p, "02 Market Research");
@@ -326,16 +327,15 @@ describe("choosing a project's parts and its Board", () => {
     expect(p.body).toContain("## Lean canvas");
   });
 
-  it("saves Board cards in projectboard.lifeos and reads them back", async () => {
+  it("saves Board cards in the project .lifeos file and reads them back", async () => {
     const { mem, store } = await fresh();
     const p = await store.createProject("Font", "", {}, []);
     await store.saveBoard(p, [
       { id: "t1", type: "text", text: "Line one\nLine two: with a colon", x: 10, y: 20, w: 300 },
       { id: "p1", type: "page", page: "overview", x: 5, y: 6 },
     ]);
-    expect(mem.files.get(p.path)!.text).not.toContain("board:");
-    const dir = p.path.slice(0, p.path.lastIndexOf("/"));
-    expect(mem.files.get(`${dir}/projectboard.lifeos`)!.text).toContain("Line one");
+    expect(mem.files.get(p.path)!.text).toContain("board:");
+    expect(p.path).toBe("Projects/Font/font.lifeos");
     const again = store.index.items.get(p.id)!;
     expect(again.board).toEqual([
       { id: "t1", type: "text", text: "Line one\nLine two: with a colon", x: 10, y: 20, w: 300 },
@@ -374,5 +374,21 @@ describe("choosing a project's parts and its Board", () => {
     expect(after.files).toEqual(["sketch 2.png"]);
     expect(mem.files.has("Projects/Font/sketch.png")).toBe(false);
     expect([...mem.files.keys()].some((k) => k.startsWith(".trash/") && k.endsWith("Projects/Font/sketch.png"))).toBe(true);
+  });
+});
+
+describe("older projects", () => {
+  it("move to one .lifeos file, taking the Board from projectboard.lifeos", async () => {
+    const { mem, store } = await fresh();
+    mem.dropFile("Projects/Personal/Old/Old.md", "---\nid: abc\nkind: project\ntitle: Old\n---\n");
+    mem.dropFile("Projects/Personal/Old/projectboard.lifeos", JSON.stringify({ board: [{ id: "t", type: "text", text: "hi", x: 1, y: 2 }] }));
+    await store.rescan();
+    const old = store.index.items.get("abc")!;
+    expect(old.board?.[0].text).toBe("hi");
+    await store.saveItem(old);
+    expect(mem.files.has("Projects/Personal/Old/old.lifeos")).toBe(true);
+    expect(mem.files.has("Projects/Personal/Old/Old.md")).toBe(false);
+    expect(mem.files.has("Projects/Personal/Old/projectboard.lifeos")).toBe(false);
+    expect(store.index.items.get("abc")!.board?.[0].text).toBe("hi");
   });
 });

@@ -65,15 +65,23 @@ export function uniqueName(base: string, ext: string, taken: (name: string) => b
   return name;
 }
 
-/** The file that holds a project's Board layout, next to the project's note. */
+/** Older versions kept the Board in this separate file; it is read once and then moved to the trash. */
 export const BOARD_FILE = "projectboard.lifeos";
 
 export function isBoardFile(path: string): boolean {
   return path === BOARD_FILE || path.endsWith("/" + BOARD_FILE);
 }
 
+/** A project's own file: its name in lowercase with no spaces, e.g. "ventureideationsystem.lifeos". */
+export function projectFile(name: string): string {
+  const slug = name.toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+  return `${slug || "project"}.lifeos`;
+}
+
+/** Notes are Markdown files (.md) and project files (.lifeos). */
 export function isNote(path: string): boolean {
-  return path.toLowerCase().endsWith(".md");
+  const p = path.toLowerCase();
+  return (p.endsWith(".md") || p.endsWith(".lifeos")) && !isBoardFile(path);
 }
 
 export function today(): string {
