@@ -1,13 +1,9 @@
-import { useState } from "react";
 import type { Item } from "../core/types";
-import { dirName } from "../core/paths";
 import { displayValue, useStore, type Route } from "./hooks";
 import { ItemView } from "./ItemView";
-import { Modal } from "./Modal";
-import { NewProjectModal } from "./ProjectsView";
 import { Board } from "./Board";
 
-/** A project: its Board (or the page you opened from it) on the right, modules and sub-projects on the left. */
+/** A project: its Board (or the page you opened from it) on the right, its pages on the left. */
 export function ProjectView({
   project,
   selectedId,
@@ -21,14 +17,12 @@ export function ProjectView({
 }) {
   const store = useStore();
   const parts = store.index.partsOf(project);
-  const [adding, setAdding] = useState<"" | "module" | "sub">("");
   const parents: Item[] = [];
   let cur = store.index.parentProject(project);
   while (cur) {
     parents.unshift(cur);
     cur = store.index.parentProject(cur);
   }
-  const projectRel = dirName(project.path).slice(store.module("projects")!.folder.length + 1);
   const onBoard = selectedId === project.id && !details;
 
   const navItem = (i: Item, label: string) => (
@@ -66,18 +60,6 @@ export function ProjectView({
           <span className="nav-label">Details</span>
         </button>
 
-        <div className="nav-group-title">Modules</div>
-        {parts.modules.map((m) => navItem(m, m.title))}
-        <button className="nav-item muted" onClick={() => setAdding("module")}>
-          + Add module page
-        </button>
-
-        <div className="nav-group-title">Sub-projects</div>
-        {parts.subprojects.map((p) => navItem(p, p.title))}
-        <button className="nav-item muted" onClick={() => setAdding("sub")}>
-          + New sub-project
-        </button>
-
         {parts.notes.length > 0 && (
           <>
             <div className="nav-group-title">Other notes</div>
@@ -99,97 +81,6 @@ export function ProjectView({
         )}
       </div>
 
-      {adding === "module" && (
-        <AddModuleModal
-          project={project}
-          close={() => setAdding("")}
-          done={(id) => {
-            setAdding("");
-            if (id) go({ view: "item", id });
-          }}
-        />
-      )}
-      {adding === "sub" && (
-        <NewProjectModal
-          heading={`New sub-project in ${project.title}`}
-          fixedFolder={projectRel}
-          close={() => setAdding("")}
-          create={async (title, _folder, parts, fields) => {
-            const p = await store.createProject(title, projectRel, fields, parts);
-            setAdding("");
-            go({ view: "item", id: p.id });
-          }}
-        />
-      )}
     </div>
-  );
-}
-
-function AddModuleModal({ project, close, done }: { project: Item; close: () => void; done: (id?: string) => void }) {
-  const store = useStore();
-  const [title, setTitle] = useState("");
-  const [app, setApp] = useState("");
-  const existing = new Set(store.index.partsOf(project).modules.map((m) => String(m.fields["App"] ?? "")));
-  const apps = store.modules.filter((m) => m.id !== "projects");
-  const notYet = apps.filter((m) => !existing.has(m.id));
-
-  return (
-    <Modal close={close}>
-      <h2>Add a module page to {project.title}</h2>
-      <p className="muted small">
-        A module page is that part's own documentation and build log. It doesn't get the Venture sections.
-      </p>
-      <form
-        onSubmit={async (e) => {
-          e.preventDefault();
-          const name = title.trim() || apps.find((m) => m.id === app)?.name || "";
-          if (!name) return;
-          const page = await store.addModulePage(project, name, app || undefined);
-          done(page.id);
-        }}
-      >
-        <div className="form-rows">
-          <label className="field">
-            <span className="field-label">Which LifeOS app is it about? (optional)</span>
-            <select value={app} onChange={(e) => setApp(e.target.value)}>
-              <option value="">— Not a LifeOS app —</option>
-              {apps.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.icon} {m.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span className="field-label">Name</span>
-            <input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder={apps.find((m) => m.id === app)?.name ?? "e.g. Journal"}
-            />
-          </label>
-        </div>
-        <div className="modal-actions">
-          {notYet.length > 0 && (
-            <button
-              type="button"
-              className="left"
-              onClick={async () => {
-                for (const m of notYet) await store.addModulePage(project, m.name, m.id);
-                done();
-              }}
-            >
-              Add pages for all {notYet.length} LifeOS apps
-            </button>
-          )}
-          <button type="button" onClick={close}>
-            Cancel
-          </button>
-          <button className="primary" type="submit" disabled={!title.trim() && !app}>
-            Add
-          </button>
-        </div>
-      </form>
-    </Modal>
   );
 }

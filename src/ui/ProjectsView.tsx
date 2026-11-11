@@ -39,7 +39,7 @@ export function ProjectsView({ go }: { go: (r: Route) => void }) {
         <p className="muted">
           Each project is a folder with a Board for text, documents, videos and photos. Personal projects go in
           Personal, ventures in Ventures. Add the Venture Ideation System or a build log when a project needs them.
-          Projects inside another project's folder show up as its sub-projects. <span className="path">LifeOS/{mod.folder}</span>
+          <span className="path">LifeOS/{mod.folder}</span>
         </p>
       </header>
 
