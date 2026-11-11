@@ -397,7 +397,7 @@ describe("journal days", () => {
   it("makes one folder per day, keeps added files under their own names", async () => {
     const { mem, store } = await fresh();
     const day = await store.openJournalDay("2026-11-11");
-    expect(day.path).toBe("Journal/2026-11-11/2026-11-11.md");
+    expect(day.path).toBe("Journal/2026-11-11/2026-11-11.lifeos");
     expect((await store.openJournalDay("2026-11-11")).id).toBe(day.id);
     mem.external.set("/Users/you/Desktop/walk.jpg", "JPG");
     mem.external.set("/Users/you/Desktop/memo.m4a", "AUDIO");

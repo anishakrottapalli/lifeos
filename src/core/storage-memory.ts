@@ -167,6 +167,10 @@ export class MemoryStorage implements Storage {
   async fileUrl() {
     return null;
   }
+  async readBase64(path: string) {
+    const f = this.files.get(path);
+    return f ? btoa(f.text) : null;
+  }
   async open() {}
   async reveal() {}
   async pickFolder() {
