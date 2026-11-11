@@ -2,13 +2,24 @@
 // link, delete). Each action writes to the files first, then rereads the
 // folder, so what you see is always what's on disk.
 
-import type { Entry, FieldDef, Item, ModuleDef } from "./types";
+import type { BoardCard, Entry, FieldDef, Item, ModuleDef } from "./types";
 import type { Storage } from "./storage";
 import { DEFAULT_MODULES, applyOverrides, type ModuleOverrides } from "./modules";
 import { LifeIndex } from "./index";
 import { serializeItem } from "./notes";
 import { newId } from "./ids";
-import { DOCS_FILE, MODULES_FOLDER, OVERVIEW_TEMPLATE, SECTIONS, docsTemplate, moduleTemplate } from "./projects";
+import {
+  ALL_PART_KEYS,
+  DOCS_FILE,
+  DOCS_KEY,
+  MODULES_FOLDER,
+  OVERVIEW_KEY,
+  OVERVIEW_TEMPLATE,
+  SECTIONS,
+  docsTemplate,
+  moduleTemplate,
+  type PartKey,
+} from "./projects";
 import {
   datePrefix,
   dirName,
@@ -365,37 +376,47 @@ export class LifeStore {
     return this.index.entries.some((e) => e.path.startsWith(prefix));
   }
 
-  /** Write any Venture sections or the Documentation page a project is missing. */
-  private async writeMissingParts(project: Item) {
+  /** Write the chosen Venture sections / Documentation page, if the project doesn't have them yet. */
+  private async writeParts(project: Item, parts: PartKey[] = ALL_PART_KEYS) {
     const mod = this.projectsModule();
     const dir = dirName(project.path);
     const rel = dir.slice(mod.folder.length).replace(/^\//, "");
     const have = new Set(this.index.entries.map((e) => e.path));
     for (const s of SECTIONS) {
+      if (!parts.includes(s.file)) continue;
       const path = join(dir, `${s.file}.md`);
       if (have.has(path)) continue;
       await this.writeNote(path, serializeItem(this.blankItem(mod.id, "section", s.title, path, s.template, rel), mod));
     }
     const docsPath = join(dir, `${DOCS_FILE}.md`);
-    if (!have.has(docsPath)) {
+    if (parts.includes(DOCS_KEY) && !have.has(docsPath)) {
       const docs = this.blankItem(mod.id, "docs", "Documentation", docsPath, docsTemplate(today()), rel);
       await this.writeNote(docsPath, serializeItem(docs, mod));
     }
   }
 
-  /** Create a project folder with its Overview, Venture sections, Deck and Documentation. */
-  async createProject(title: string, parentFolder = "", fields: Record<string, unknown> = {}): Promise<Item> {
+  /**
+   * Create a project folder. Every project has a Board; `parts` picks which of
+   * the Overview, Venture sections, Deck and Documentation it also gets.
+   */
+  async createProject(
+    title: string,
+    parentFolder = "",
+    fields: Record<string, unknown> = {},
+    parts: PartKey[] = ALL_PART_KEYS,
+  ): Promise<Item> {
     return this.run(async () => {
       const mod = this.projectsModule();
       const parentDir = join(mod.folder, safeFolder(parentFolder));
       const name = uniqueName(safeName(title), "", (n) => this.dirTaken(join(parentDir, n)));
       const dir = join(parentDir, name);
       const rel = dir.slice(mod.folder.length).replace(/^\//, "");
-      const main = this.blankItem(mod.id, "project", title.trim() || name, join(dir, `${name}.md`), OVERVIEW_TEMPLATE, rel);
+      const body = parts.includes(OVERVIEW_KEY) ? OVERVIEW_TEMPLATE : "";
+      const main = this.blankItem(mod.id, "project", title.trim() || name, join(dir, `${name}.md`), body, rel);
       main.fields = { Status: "Idea", ...fields };
       await this.writeNote(main.path, serializeItem(main, mod));
       this.index.entries.push({ path: main.path, mtime: Date.now(), size: 0 });
-      await this.writeMissingParts(main);
+      await this.writeParts(main, parts);
       await this.rescanNow();
       return this.index.items.get(main.id) ?? main;
     });
@@ -403,8 +424,72 @@ export class LifeStore {
 
   async addMissingSections(project: Item): Promise<void> {
     return this.run(async () => {
-      await this.writeMissingParts(project);
+      await this.writeParts(project);
       await this.rescanNow();
+    });
+  }
+
+  /** Add one part (Overview, a Venture section, Deck or Documentation) to an existing project. */
+  async addPart(project: Item, part: PartKey): Promise<void> {
+    if (part === OVERVIEW_KEY) {
+      const fresh = this.index.items.get(project.id) ?? project;
+      if (fresh.body.includes("## Lean canvas")) return;
+      const body = fresh.body.trim() ? `${fresh.body.trim()}\n\n${OVERVIEW_TEMPLATE}` : OVERVIEW_TEMPLATE;
+      await this.saveItem({ ...fresh, body });
+      return;
+    }
+    return this.run(async () => {
+      await this.writeParts(project, [part]);
+      await this.rescanNow();
+    });
+  }
+
+  // ---------- the Board ----------
+  /** Save the Board's cards (positions, text) into the project note. */
+  async saveBoard(project: Item, board: BoardCard[]): Promise<Item> {
+    const fresh = this.index.items.get(project.id) ?? project;
+    return this.saveItem({ ...fresh, board });
+  }
+
+  /**
+   * Move files from anywhere on the Mac into the project's folder (keeping their
+   * names; " 2" on a clash) and put them on the Board, starting at `at`.
+   */
+  async addBoardFiles(project: Item, absPaths: string[], at: { x: number; y: number }): Promise<Item> {
+    return this.run(async () => {
+      const fresh = this.index.items.get(project.id) ?? project;
+      const dir = dirName(fresh.path);
+      const files = [...fresh.files];
+      const board = [...(fresh.board ?? [])];
+      let n = 0;
+      for (const abs of absPaths) {
+        const orig = abs.split(/[\\/]/).pop() || "file";
+        const name = uniqueName(safeName(stripExt(orig)), extName(orig), this.taken(dir));
+        await this.storage.importFile(abs, join(dir, name));
+        this.index.entries.push({ path: join(dir, name), mtime: Date.now(), size: 0 });
+        files.push(name);
+        board.push({ id: newId(), type: "file", file: name, x: Math.round(at.x + (n % 3) * 280), y: Math.round(at.y + Math.floor(n / 3) * 240), w: 260 });
+        n++;
+      }
+      return this.saveNow({ ...fresh, files, board }, false);
+    });
+  }
+
+  /** Take a card off the Board. A file card's file goes to LifeOS/.trash (recoverable). */
+  async removeBoardCard(project: Item, card: BoardCard): Promise<Item> {
+    return this.run(async () => {
+      const fresh = this.index.items.get(project.id) ?? project;
+      let files = fresh.files;
+      if (card?.type === "file" && card.file) {
+        const p = join(dirName(fresh.path), card.file);
+        if (await this.storage.exists(p)) {
+          const stamp = nowStamp().replace(/[:T]/g, "-");
+          await this.storage.move(p, join(".trash", stamp, p));
+        }
+        files = files.filter((f) => f !== card.file);
+      }
+      const board = (fresh.board ?? []).filter((c) => c.id !== card.id);
+      return this.saveNow({ ...fresh, files, board }, false);
     });
   }
 
@@ -469,7 +554,7 @@ export class LifeStore {
         main.body = note.body.trim() ? `${note.body.trim()}\n\n${OVERVIEW_TEMPLATE}` : OVERVIEW_TEMPLATE;
         main.folder = dir.slice(mod.folder.length).replace(/^\//, "");
         await this.writeNote(main.path, serializeItem(main, mod));
-        await this.writeMissingParts(main);
+        await this.writeParts(main);
         await this.rescanNow();
         return this.index.items.get(main.id) ?? main;
       });

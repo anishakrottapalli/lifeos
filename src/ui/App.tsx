@@ -28,10 +28,10 @@ export function App() {
   }, []);
 
   // Anything inside a project (its Overview, sections, module pages) opens in the project layout.
-  function renderItem(id: string) {
+  function renderItem(id: string, details: boolean) {
     const item = store.index.items.get(id);
     const project = item && store.index.projectFor(item);
-    if (item && project) return <ProjectView key={project.id} project={project} selectedId={id} go={go} />;
+    if (item && project) return <ProjectView key={project.id} project={project} selectedId={id} details={details} go={go} />;
     return <ItemView key={id} itemId={id} go={go} />;
   }
 
@@ -57,7 +57,7 @@ export function App() {
         {route.view === "home" && <Home go={go} />}
         {route.view === "module" &&
           (route.id === "projects" ? <ProjectsView go={go} /> : <ModuleView key={route.id} moduleId={route.id} go={go} />)}
-        {route.view === "item" && renderItem(route.id)}
+        {route.view === "item" && renderItem(route.id, route.page === "details")}
         {route.view === "settings" && <SettingsView />}
       </main>
       {searchOpen && <SearchPalette go={go} close={() => setSearchOpen(false)} />}

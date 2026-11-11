@@ -14,7 +14,7 @@ export function useStore(): LifeStore {
 export type Route =
   | { view: "home" }
   | { view: "module"; id: string }
-  | { view: "item"; id: string }
+  | { view: "item"; id: string; page?: "details" }
   | { view: "settings" };
 
 export function timeAgo(stamp: string): string {

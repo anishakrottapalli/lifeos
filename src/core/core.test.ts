@@ -300,3 +300,67 @@ describe("folders", () => {
     }
   });
 });
+
+describe("choosing a project's parts and its Board", () => {
+  it("a simple project is just its folder and Board; parts can be added later", async () => {
+    const { mem, store } = await fresh();
+    const p = await store.createProject("Handwriting Font", "Personal", {}, []);
+    expect([...mem.files.keys()].filter((k) => k.startsWith("Projects/Personal/Handwriting Font/"))).toEqual([
+      "Projects/Personal/Handwriting Font/Handwriting Font.md",
+    ]);
+    expect(p.body.trim()).toBe("");
+    await store.addPart(p, "02 Market Research");
+    await store.addPart(store.index.items.get(p.id)!, "overview");
+    const parts = store.index.partsOf(store.index.items.get(p.id)!);
+    expect(parts.sections.map((s) => s.title)).toEqual(["Market Research"]);
+    expect(parts.docs).toBeUndefined();
+    expect(store.index.items.get(p.id)!.body).toContain("## Lean canvas");
+  });
+
+  it("only makes the parts that were ticked", async () => {
+    const { store } = await fresh();
+    const p = await store.createProject("App", "", {}, ["overview", "10 Deck", "docs"]);
+    const parts = store.index.partsOf(p);
+    expect(parts.sections.map((s) => s.title)).toEqual(["Deck"]);
+    expect(parts.docs).toBeTruthy();
+    expect(p.body).toContain("## Lean canvas");
+  });
+
+  it("saves Board cards in the project note and reads them back", async () => {
+    const { mem, store } = await fresh();
+    const p = await store.createProject("Font", "", {}, []);
+    await store.saveBoard(p, [
+      { id: "t1", type: "text", text: "Line one\nLine two: with a colon", x: 10, y: 20, w: 300 },
+      { id: "p1", type: "page", page: "overview", x: 5, y: 6 },
+    ]);
+    const text = mem.files.get(p.path)!.text;
+    expect(text).toContain("board:");
+    const again = store.index.items.get(p.id)!;
+    expect(again.board).toEqual([
+      { id: "t1", type: "text", text: "Line one\nLine two: with a colon", x: 10, y: 20, w: 300 },
+      { id: "p1", type: "page", page: "overview", x: 5, y: 6 },
+    ]);
+    expect(again.fields["board"]).toBeUndefined();
+    expect(store.index.search("colon").map((i) => i.id)).toContain(p.id);
+  });
+
+  it("moves dropped files into the project folder with their own names, and trashes them when removed", async () => {
+    const { mem, store } = await fresh();
+    mem.external.set("/Users/you/Desktop/sketch.png", "PNG");
+    mem.external.set("/Users/you/Desktop/other/sketch.png", "PNG2");
+    const p = await store.createProject("Font", "", {}, []);
+    const saved = await store.addBoardFiles(p, ["/Users/you/Desktop/sketch.png", "/Users/you/Desktop/other/sketch.png"], { x: 100, y: 50 });
+    expect(saved.files).toEqual(["sketch.png", "sketch 2.png"]);
+    expect(mem.files.has("Projects/Font/sketch.png")).toBe(true);
+    expect(mem.external.size).toBe(0);
+    expect(saved.board?.map((c) => [c.type, c.file, c.x, c.y])).toEqual([
+      ["file", "sketch.png", 100, 50],
+      ["file", "sketch 2.png", 380, 50],
+    ]);
+    expect(store.index.unfiled("projects")).toEqual([]);
+    const after = await store.removeBoardCard(saved, saved.board![0]);
+    expect(after.files).toEqual(["sketch 2.png"]);
+    expect(mem.files.has("Projects/Font/sketch.png")).toBe(false);
+    expect([...mem.files.keys()].some((k) => k.startsWith(".trash/") && k.endsWith("Projects/Font/sketch.png"))).toBe(true);
+  });
+});

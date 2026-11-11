@@ -164,6 +164,9 @@ export class MemoryStorage implements Storage {
     this.files.set(to, { text: t, mtime: Date.now() });
     this.changed();
   }
+  async fileUrl() {
+    return null;
+  }
   async open() {}
   async reveal() {}
   async pickFolder() {

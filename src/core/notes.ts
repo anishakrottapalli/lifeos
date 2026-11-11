@@ -3,10 +3,10 @@
 // reads Markdown can open these files, with or without LifeOS.
 
 import YAML from "yaml";
-import type { Item, Link, ModuleDef } from "./types";
+import type { BoardCard, Item, Link, ModuleDef } from "./types";
 import { fileName, stripExt } from "./paths";
 
-const RESERVED = ["id", "module", "kind", "title", "created", "updated", "tags", "links", "files"];
+const RESERVED = ["id", "module", "kind", "title", "created", "updated", "tags", "links", "files", "board"];
 
 export interface ParsedNote {
   meta: Record<string, unknown>;
@@ -56,6 +56,29 @@ function asLinks(v: unknown): Link[] {
   return out.filter((l) => l.to);
 }
 
+function asNumber(v: unknown, fallback = 0): number {
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function asBoard(v: unknown): BoardCard[] | undefined {
+  if (!Array.isArray(v)) return undefined;
+  const out: BoardCard[] = [];
+  for (const c of v) {
+    if (!c || typeof c !== "object") continue;
+    const o = c as Record<string, unknown>;
+    const type = asString(o.type);
+    if (type !== "text" && type !== "file" && type !== "page") continue;
+    const card: BoardCard = { id: asString(o.id) || `c${out.length}`, type, x: asNumber(o.x), y: asNumber(o.y) };
+    if (o.w !== undefined) card.w = asNumber(o.w, 240);
+    if (type === "text") card.text = asString(o.text);
+    if (type === "file") card.file = asString(o.file);
+    if (type === "page") card.page = asString(o.page);
+    out.push(card);
+  }
+  return out;
+}
+
 /** Turn a note file into an Item. `module` is the app it was found in. */
 export function parseItem(path: string, text: string, module: string, folder: string): Item {
   const { meta, body } = splitFrontmatter(text);
@@ -77,6 +100,7 @@ export function parseItem(path: string, text: string, module: string, folder: st
     links: asLinks(meta.links),
     files: asStringList(meta.files),
     body,
+    ...(Array.isArray(meta.board) ? { board: asBoard(meta.board) } : {}),
     created: asString(meta.created),
     updated: asString(meta.updated),
   };
@@ -104,6 +128,7 @@ export function serializeItem(item: Item, mod?: ModuleDef): string {
   if (item.tags.length) meta.tags = item.tags;
   if (item.links.length) meta.links = item.links.map((l) => ({ to: l.to, kind: l.kind }));
   if (item.files.length) meta.files = item.files;
+  if (item.board?.length) meta.board = item.board.map((c) => ({ ...c }));
   const ordered = mod ? mod.fields.map((f) => f.key) : [];
   const keys = [...ordered, ...Object.keys(item.fields).filter((k) => !ordered.includes(k))];
   for (const k of keys) {
