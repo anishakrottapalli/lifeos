@@ -22,8 +22,6 @@ export interface Storage {
   importFile(fromAbs: string, to: string): Promise<void>;
   /** A web address the window can show a picture or video from (null if it can't). */
   fileUrl(path: string): Promise<string | null>;
-  /** A file's contents as base64 (for pictures and recordings kept inside a Journal entry). */
-  readBase64(path: string): Promise<string | null>;
   open(path: string): Promise<void>;
   reveal(path: string): Promise<void>;
   pickFolder(): Promise<string | null>;

@@ -89,26 +89,8 @@ function asBoard(v: unknown): BoardCard[] | undefined {
   return out;
 }
 
-/** Journal entries keep a copy of each picture and recording at the end of the file, after this line. */
-export const ATTACHMENTS_MARK = "<!--lifeos-attachments-->";
-
-function parseAttachments(rest: string): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const line of rest.split("\n")) {
-    const tab = line.indexOf("\t");
-    if (tab > 0) out[line.slice(0, tab)] = line.slice(tab + 1).trim();
-  }
-  return out;
-}
-
 /** Turn a note file into an Item. `module` is the app it was found in. */
 export function parseItem(path: string, text: string, module: string, folder: string): Item {
-  let attachments: Record<string, string> | undefined;
-  const cut = text.indexOf(`\n${ATTACHMENTS_MARK}\n`);
-  if (cut >= 0) {
-    attachments = parseAttachments(text.slice(cut + ATTACHMENTS_MARK.length + 2));
-    text = text.slice(0, cut + 1);
-  }
   const { meta, body } = splitFrontmatter(text);
   const fields: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(meta)) {
@@ -128,7 +110,6 @@ export function parseItem(path: string, text: string, module: string, folder: st
     links: asLinks(meta.links),
     files: asStringList(meta.files),
     body,
-    ...(attachments && Object.keys(attachments).length ? { attachments } : {}),
     ...(Array.isArray(meta.board) ? { board: asBoard(meta.board) } : {}),
     created: asString(meta.created),
     updated: asString(meta.updated),
@@ -166,8 +147,5 @@ export function serializeItem(item: Item, mod?: ModuleDef): string {
   }
   const yaml = YAML.stringify(meta, { lineWidth: 0 }).trimEnd();
   const body = item.body.replace(/^\n+/, "");
-  const tail = item.attachments && Object.keys(item.attachments).length
-    ? `\n${ATTACHMENTS_MARK}\n${Object.entries(item.attachments).map(([n, d]) => `${n}\t${d}\n`).join("")}`
-    : "";
-  return `---\n${yaml}\n---\n\n${body}${body.endsWith("\n") || !body ? "" : "\n"}${tail}`;
+  return `---\n${yaml}\n---\n\n${body}${body.endsWith("\n") || !body ? "" : "\n"}`;
 }

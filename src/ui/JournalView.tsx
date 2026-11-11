@@ -1,6 +1,5 @@
 // The Journal: one folder per day, "Journal/2026-11-11/". The day's writing is
-// "2026-11-11.lifeos": the text with each picture and recording in place, plus a
-// copy of them. The same pictures and recordings are also saved as separate files beside it.
+// "2026-11-11.md"; pictures and audio recordings sit beside it in the same folder.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Item } from "../core/types";
@@ -13,7 +12,7 @@ import { Modal } from "./Modal";
 
 const IMAGE = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp", ".heic"];
 const AUDIO = [".m4a", ".mp3", ".wav", ".aac", ".aiff", ".caf", ".ogg", ".flac"];
-const DAY_PATH = /^Journal\/\d{4}-\d{2}-\d{2}\/[^/]+\.lifeos$/;
+const DAY_PATH = /^Journal\/\d{4}-\d{2}-\d{2}\/[^/]+\.md$/;
 
 function kindOf(name: string): "image" | "audio" | "other" {
   const e = extName(name).toLowerCase();
@@ -189,8 +188,7 @@ export function JournalDay({ itemId, go }: { itemId: string; go: (r: Route) => v
   useEffect(() => () => void saveRef.current(), []);
 
   /** Put files in the text: where the cursor is while you're editing, otherwise at the end. */
-  async function place(names: string[], embed = true) {
-    if (embed && day) await store.embedJournalFiles(store.index.items.get(itemId) ?? day, names);
+  async function place(names: string[]) {
     const block = names.map((n) => mediaLine(n)).join("\n\n");
     const cur = textRef.current;
     const area = areaRef.current;
@@ -213,7 +211,7 @@ export function JournalDay({ itemId, go }: { itemId: string; go: (r: Route) => v
       await store.addJournalFiles(store.index.items.get(itemId) ?? day, paths);
       const fresh = store.index.items.get(itemId) ?? day;
       const added = contentOf(store, fresh).filter((n) => !before.has(n) && kindOf(n) !== "other");
-      if (added.length) await place(added, false);
+      if (added.length) await place(added);
       setStatus(`Moved ${paths.length} file${paths.length === 1 ? "" : "s"} into the day's folder`);
     } catch (e) {
       setStatus(`Couldn't add: ${e}`);
@@ -255,8 +253,7 @@ export function JournalDay({ itemId, go }: { itemId: string; go: (r: Route) => v
   useEffect(() => {
     let alive = true;
     const base = day ? dirName(day.path) : "";
-    const inside = day?.attachments ?? {};
-    Promise.all(names.map(async (n) => [n, inside[n] ?? (await store.storage.fileUrl(join(base, n)))] as const)).then((pairs) => {
+    Promise.all(names.map(async (n) => [n, await store.storage.fileUrl(join(base, n))] as const)).then((pairs) => {
       if (!alive) return;
       const next: Record<string, string> = {};
       for (const [n, u] of pairs) if (u) next[n] = u;
@@ -265,7 +262,7 @@ export function JournalDay({ itemId, go }: { itemId: string; go: (r: Route) => v
     return () => {
       alive = false;
     };
-  }, [namesKey, day?.path, day?.attachments, store.storage]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [namesKey, day?.path, store.storage]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!day) {
     return (

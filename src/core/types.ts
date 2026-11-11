@@ -77,8 +77,6 @@ export interface Item {
   /** Attached file names, in the same folder as the note. */
   files: string[];
   body: string;
-  /** Journal days only: copies of the pictures and recordings kept inside the entry, by file name (as data: addresses). */
-  attachments?: Record<string, string>;
   /** Projects only: the cards on the project's Board. */
   board?: BoardCard[];
   created: string;

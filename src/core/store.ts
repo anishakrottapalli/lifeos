@@ -38,13 +38,6 @@ import {
   uniqueName,
 } from "./paths";
 
-const MEDIA_TYPES: Record<string, string> = {
-  ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp",
-  ".svg": "image/svg+xml", ".bmp": "image/bmp", ".heic": "image/heic",
-  ".m4a": "audio/mp4", ".mp3": "audio/mpeg", ".wav": "audio/wav", ".aac": "audio/aac", ".aiff": "audio/aiff",
-  ".caf": "audio/x-caf", ".ogg": "audio/ogg", ".flac": "audio/flac",
-};
-
 const MODULES_FILE = ".lifeos/modules.json";
 
 export class LifeStore {
@@ -524,13 +517,13 @@ export class LifeStore {
   }
 
   // ---------- Journal: one folder per day ----------
-  /** The day's entry, "Journal/2026-11-11/2026-11-11.lifeos". It holds the text and a copy of each attachment. Makes the day if it isn't there yet. */
+  /** The day's text page, "Journal/2026-11-11/2026-11-11.md". Makes the day if it isn't there yet. */
   async openJournalDay(date: string): Promise<Item> {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Pick a date.");
     return this.run(async () => {
       const mod = this.module("journal");
       if (!mod) throw new Error("The Journal app isn't available.");
-      const path = join(mod.folder, date, `${date}.lifeos`);
+      const path = join(mod.folder, date, `${date}.md`);
       const existing = this.index.byPath.get(path);
       if (existing) return existing;
       const item = this.blankItem(mod.id, "", date, path, "", date);
@@ -545,34 +538,14 @@ export class LifeStore {
   async addJournalFiles(day: Item, absPaths: string[]): Promise<void> {
     return this.run(async () => {
       const dir = dirName(day.path);
-      const added: string[] = [];
       for (const abs of absPaths) {
         const orig = abs.split(/[\\/]/).pop() || "file";
         const name = uniqueName(safeName(stripExt(orig)), extName(orig), this.taken(dir));
         await this.storage.importFile(abs, join(dir, name));
         this.index.entries.push({ path: join(dir, name), mtime: Date.now(), size: 0 });
-        added.push(name);
       }
-      await this.embedNow(day, added);
+      await this.rescanNow();
     });
-  }
-
-  /** Keep a copy of each picture and recording inside the day's entry file (the separate files stay too). */
-  private async embedNow(day: Item, names: string[]): Promise<void> {
-    const fresh = this.index.items.get(day.id) ?? day;
-    const dir = dirName(fresh.path);
-    const attachments = { ...(fresh.attachments ?? {}) };
-    for (const n of names) {
-      const mime = MEDIA_TYPES[extName(n).toLowerCase()];
-      if (!mime) continue;
-      const data = await this.storage.readBase64(join(dir, n));
-      if (data) attachments[n] = `data:${mime};base64,${data}`;
-    }
-    await this.saveNow({ ...fresh, attachments }, false);
-  }
-
-  async embedJournalFiles(day: Item, names: string[]): Promise<void> {
-    return this.run(() => this.embedNow(day, names));
   }
 
   /** Move one file from a day to LifeOS/.trash. */
@@ -583,11 +556,7 @@ export class LifeStore {
         const stamp = nowStamp().replace(/[:T]/g, "-");
         await this.storage.move(p, join(".trash", stamp, p));
       }
-      const fresh = this.index.items.get(day.id) ?? day;
-      if (fresh.attachments?.[name]) {
-        const { [name]: _gone, ...rest } = fresh.attachments;
-        await this.saveNow({ ...fresh, attachments: rest }, false);
-      } else await this.rescanNow();
+      await this.rescanNow();
     });
   }
 

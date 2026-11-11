@@ -46,13 +46,6 @@ export class TauriStorage implements Storage {
     const abs = await invoke<string>("full_path", { path });
     return convertFileSrc(abs);
   }
-  async readBase64(path: string) {
-    const url = await this.fileUrl(path);
-    const buf = new Uint8Array(await (await fetch(url)).arrayBuffer());
-    let bin = "";
-    for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
-    return btoa(bin);
-  }
   open(path: string) {
     return invoke<void>("open_in_os", { path });
   }
