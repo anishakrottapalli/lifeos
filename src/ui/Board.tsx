@@ -175,6 +175,22 @@ export function Board({ project, go }: { project: Item; go: (r: Route) => void }
     save(next);
   }
 
+  const [naming, setNaming] = useState(false);
+  const [newName, setNewName] = useState("");
+  async function addMarkdown() {
+    const title = newName.trim();
+    if (!title) return;
+    setNaming(false);
+    setNewName("");
+    if (busy.current) await save(cardsRef.current);
+    try {
+      await store.createBoardMarkdown(store.index.items.get(project.id) ?? project, title, visibleSpot(300, 160));
+      setStatus(`Created ${title}`);
+    } catch (e) {
+      setStatus(`Couldn't create: ${e}`);
+    }
+  }
+
   async function addFiles(paths: string[], at = visibleSpot(260, 220)) {
     if (!paths.length) return;
     // Keep any unsaved moves/typing before the files land.
@@ -284,6 +300,7 @@ export function Board({ project, go }: { project: Item; go: (r: Route) => void }
     <div className="board-wrap">
       <div className="board-bar">
         <button onClick={addText}>+ Text</button>
+        <button onClick={() => setNaming(true)}>+ Markdown page</button>
         <button onClick={async () => addFiles(await store.storage.pickFiles())}>+ Pictures, videos, notes & files</button>
         {missingParts.length > 0 && (
           <select
@@ -316,6 +333,31 @@ export function Board({ project, go }: { project: Item; go: (r: Route) => void }
       </div>
       {store.storage.kind === "mac" && (
         <p className="muted small board-hint">Drag pictures, videos or files from Finder onto the Board. They're moved into this project's folder.</p>
+      )}
+
+      {naming && (
+        <Modal close={() => setNaming(false)}>
+          <h2>New Markdown page</h2>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              addMarkdown();
+            }}
+          >
+            <label className="field">
+              <span className="field-label">Name (it becomes the file name, ending in .md)</span>
+              <input autoFocus value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. Ideas" />
+            </label>
+            <div className="modal-actions">
+              <button type="button" onClick={() => setNaming(false)}>
+                Cancel
+              </button>
+              <button className="primary" type="submit" disabled={!newName.trim()}>
+                Create
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
 
       <div className={`board ${dropping ? "dropping" : ""}`} ref={boardEl}>
@@ -428,11 +470,19 @@ function MarkdownBody({ path, name }: { path: string; name: string }) {
   const store = useStore();
   const [text, setText] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const editingRef = useRef(false);
+  const headRef = useRef(""); // fields at the top of the file, kept as they were
+  editingRef.current = editing;
   useEffect(() => {
     let alive = true;
     const load = () =>
       store.storage.read(path).then((t) => {
-        if (alive) setText((t ?? "").replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, ""));
+        if (!alive || editingRef.current) return;
+        const raw = t ?? "";
+        const head = raw.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/)?.[0] ?? "";
+        headRef.current = head;
+        setText(raw.slice(head.length));
       });
     load();
     const off = store.storage.onChange(load);
@@ -451,12 +501,30 @@ function MarkdownBody({ path, name }: { path: string; name: string }) {
         <Modal close={() => setOpen(false)}>
           <div className="md-reader">
             <h2>{name.replace(/\.[^.]+$/, "")}</h2>
-            <div className="markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(text || "*Nothing written yet.*") }} />
+            {editing ? (
+              <textarea className="body-input" autoFocus value={text ?? ""} onChange={(e) => setText(e.target.value)} />
+            ) : (
+              <div className="markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(text || "*Nothing written yet.*") }} />
+            )}
             <div className="modal-actions">
-              <button onClick={() => store.storage.open(path)}>Edit in another app</button>
-              <button className="primary" onClick={() => setOpen(false)}>
-                Close
-              </button>
+              {editing ? (
+                <button
+                  className="primary"
+                  onClick={async () => {
+                    await store.storage.write(path, headRef.current + (text ?? ""));
+                    setEditing(false);
+                  }}
+                >
+                  Save
+                </button>
+              ) : (
+                <>
+                  <button onClick={() => setEditing(true)}>Edit</button>
+                  <button className="primary" onClick={() => setOpen(false)}>
+                    Close
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </Modal>

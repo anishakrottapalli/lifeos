@@ -345,6 +345,17 @@ describe("choosing a project's parts and its Board", () => {
     expect(store.index.search("colon").map((i) => i.id)).toContain(p.id);
   });
 
+  it("makes a named Markdown page on the Board", async () => {
+    const { mem, store } = await fresh();
+    const p = await store.createProject("Font", "", {}, []);
+    const dir = p.path.slice(0, p.path.lastIndexOf("/"));
+    const a = await store.createBoardMarkdown(p, "Ideas", { x: 10, y: 10 });
+    expect(mem.files.has(`${dir}/Ideas.md`)).toBe(true);
+    const b = await store.createBoardMarkdown(a, "Ideas.md", { x: 10, y: 10 });
+    expect(mem.files.has(`${dir}/Ideas 2.md`)).toBe(true);
+    expect(b.board?.map((c) => c.file)).toEqual(["Ideas.md", "Ideas 2.md"]);
+  });
+
   it("moves dropped files into the project folder with their own names, and trashes them when removed", async () => {
     const { mem, store } = await fresh();
     mem.external.set("/Users/you/Desktop/sketch.png", "PNG");

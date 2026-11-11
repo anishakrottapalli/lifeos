@@ -478,6 +478,19 @@ export class LifeStore {
     });
   }
 
+  /** Make a new, empty Markdown page in the project folder (named what you typed) and put it on the Board. */
+  async createBoardMarkdown(project: Item, title: string, at: { x: number; y: number }): Promise<Item> {
+    return this.run(async () => {
+      const fresh = this.index.items.get(project.id) ?? project;
+      const dir = dirName(fresh.path);
+      const name = uniqueName(safeName(title.trim().replace(/\.(md|markdown)$/i, "")) || "Untitled", ".md", this.taken(dir));
+      await this.storage.write(join(dir, name), `# ${stripExt(name)}\n\n`);
+      this.index.entries.push({ path: join(dir, name), mtime: Date.now(), size: 0 });
+      const board = [...(fresh.board ?? []), { id: newId(), type: "file" as const, file: name, x: Math.round(at.x), y: Math.round(at.y), w: 300 }];
+      return this.saveNow({ ...fresh, files: [...fresh.files, name], board }, false);
+    });
+  }
+
   /** Take a card off the Board. A file card's file goes to LifeOS/.trash (recoverable). */
   async removeBoardCard(project: Item, card: BoardCard): Promise<Item> {
     return this.run(async () => {
