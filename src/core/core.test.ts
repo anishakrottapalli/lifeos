@@ -174,3 +174,120 @@ describe("notes preview", () => {
     expect(html).not.toContain("<script>");
   });
 });
+
+describe("projects", () => {
+  it("creates a project folder with Overview, Venture sections, Deck and Documentation", async () => {
+    const { mem, store } = await fresh();
+    const p = await store.createProject("LifeOS", "My Business/Software");
+    expect(p.kind).toBe("project");
+    expect(p.path).toBe("Projects/My Business/Software/LifeOS/LifeOS.md");
+    const parts = store.index.partsOf(p);
+    expect(parts.sections.map((s) => s.title)).toEqual([
+      "Market Research", "Customer Development", "UI/UX", "Planning", "Marketing", "Operations", "Funding", "Financials", "Deck",
+    ]);
+    expect(parts.docs?.title).toBe("Documentation");
+    expect(mem.files.get("Projects/My Business/Software/LifeOS/LifeOS.md")?.text).toContain("Lean canvas");
+  });
+
+  it("module pages live inside the project and don't get Venture sections", async () => {
+    const { store } = await fresh();
+    const p = await store.createProject("LifeOS");
+    const journal = await store.addModulePage(p, "Journal", "journal");
+    expect(journal.path).toBe("Projects/LifeOS/Modules/Journal.md");
+    expect(journal.kind).toBe("module");
+    expect(store.index.partsOf(p).modules.map((m) => m.title)).toEqual(["Journal"]);
+    expect(store.index.partsOf(p).sections).toHaveLength(9);
+    expect(store.index.docsForApp("journal")?.id).toBe(journal.id);
+  });
+
+  it("sub-projects nest inside their parent project", async () => {
+    const { store } = await fresh();
+    const biz = await store.createProject("My Business");
+    const app = await store.createProject("Job Networking App", "My Business/Software");
+    expect(store.index.parentProject(app)?.id).toBe(biz.id);
+    expect(store.index.partsOf(biz).subprojects.map((s) => s.title)).toEqual(["Job Networking App"]);
+    // The sub-project's sections belong to it, not to the parent.
+    expect(store.index.partsOf(biz).sections).toHaveLength(9);
+  });
+
+  it("renaming or moving a project moves its whole folder", async () => {
+    const { mem, store } = await fresh();
+    const p = await store.createProject("Life OS");
+    await store.addModulePage(p, "Recipes", "recipes");
+    const moved = await store.moveProject(p, "LifeOS", "My Business/Software");
+    expect(moved.path).toBe("Projects/My Business/Software/LifeOS/LifeOS.md");
+    expect(mem.files.has("Projects/My Business/Software/LifeOS/Modules/Recipes.md")).toBe(true);
+    expect([...mem.files.keys()].some((k) => k.startsWith("Projects/Life OS/"))).toBe(false);
+    expect(store.index.partsOf(moved).modules).toHaveLength(1);
+  });
+
+  it("restores missing sections without touching existing ones", async () => {
+    const { mem, store } = await fresh();
+    const p = await store.createProject("Verzuz", "Personal");
+    mem.files.delete("Projects/Personal/Verzuz/06 Marketing.md");
+    await mem.write("Projects/Personal/Verzuz/02 Market Research.md", "my own notes");
+    await store.rescan();
+    await store.addMissingSections(p);
+    expect(mem.files.has("Projects/Personal/Verzuz/06 Marketing.md")).toBe(true);
+    expect(mem.files.get("Projects/Personal/Verzuz/02 Market Research.md")?.text).toBe("my own notes");
+  });
+
+  it("deletes a whole project into the trash", async () => {
+    const { mem, store } = await fresh();
+    const p = await store.createProject("Old idea");
+    await store.deleteProject(p);
+    expect(store.index.projects()).toHaveLength(0);
+    expect([...mem.files.keys()].every((k) => k.startsWith(".trash/"))).toBe(true);
+  });
+});
+
+import { addLogEntry } from "../ui/ItemView";
+describe("build log", () => {
+  it("adds today's entry above the newest one, once", () => {
+    const body = "Intro.\n\n## 2026-11-09\n\n- Started.\n";
+    const once = addLogEntry(body, "2026-11-10", "##");
+    expect(once.indexOf("## 2026-11-10")).toBeLessThan(once.indexOf("## 2026-11-09"));
+    expect(addLogEntry(once, "2026-11-10", "##")).toBe(once);
+  });
+  it("goes under 'Build log' on a module page with no entries", () => {
+    const out = addLogEntry("## What it does\n\n## Build log\n", "2026-11-10", "###");
+    expect(out).toMatch(/## Build log\n\n### 2026-11-10/);
+  });
+  it("section and Documentation pages keep their file names when saved", async () => {
+    const { store } = await fresh();
+    const p = await store.createProject("LifeOS");
+    const market = store.index.partsOf(p).sections.find((s) => s.title === "Market Research")!;
+    const saved = await store.saveItem({ ...market, body: "notes" }, { rename: false });
+    expect(saved.path).toBe(market.path);
+  });
+});
+
+describe("older project notes", () => {
+  it("turn into a real project folder, keeping their text", async () => {
+    const { store } = await fresh();
+    const old = await store.createItem("projects", "Verzuz", "Personal");
+    await store.saveItem({ ...old, body: "My redesign notes" });
+    expect(store.index.looseProjectNotes().map((n) => n.title)).toEqual(["Verzuz"]);
+    const p = await store.convertToProject(store.index.looseProjectNotes()[0]);
+    expect(p.path).toBe("Projects/Personal/Verzuz/Verzuz.md");
+    expect(p.body).toContain("My redesign notes");
+    expect(store.index.looseProjectNotes()).toHaveLength(0);
+    expect(store.index.partsOf(p).sections).toHaveLength(9);
+  });
+});
+
+describe("turning notes into projects in place", () => {
+  it("a note in a folder of its own name becomes a project there, and notes inside become sub-projects", async () => {
+    const { mem, store } = await fresh();
+    mem.dropFile("Projects/My Business/My Business.md", "---\ntitle: My Business\n---\nDivisions");
+    mem.dropFile("Projects/My Business/Software/LifeOS.md", "---\ntitle: LifeOS\n---\nOne folder");
+    await store.rescan();
+    const biz = await store.convertToProject(store.index.byPath.get("Projects/My Business/My Business.md")!);
+    expect(biz.path).toBe("Projects/My Business/My Business.md");
+    expect(biz.body).toContain("Divisions");
+    const life = await store.convertToProject(store.index.byPath.get("Projects/My Business/Software/LifeOS.md")!);
+    expect(life.path).toBe("Projects/My Business/Software/LifeOS/LifeOS.md");
+    expect(store.index.parentProject(life)?.id).toBe(biz.id);
+    expect(store.index.partsOf(biz).subprojects.map((p) => p.title)).toEqual(["LifeOS"]);
+  });
+});

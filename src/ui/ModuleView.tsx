@@ -15,6 +15,7 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
   const tags = useMemo(() => [...new Set(all.flatMap((i) => i.tags))].sort(), [all]);
   const folders = store.index.subfolders(moduleId);
   const loose = store.index.unfiled(moduleId);
+  const docs = store.index.docsForApp(moduleId);
 
   if (!mod) return <div className="page">Unknown app.</div>;
 
@@ -39,6 +40,7 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
             <button onClick={() => store.storage.mkdir(mod.folder).then(() => store.storage.reveal(mod.folder))}>
               Show in Finder
             </button>
+            {docs && <button onClick={() => go({ view: "item", id: docs.id })}>Docs</button>}
             <button onClick={() => setEditingFields(true)}>Fields</button>
             <button className="primary" onClick={add}>
               + New

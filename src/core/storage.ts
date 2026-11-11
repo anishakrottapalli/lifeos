@@ -14,6 +14,8 @@ export interface Storage {
   read(path: string): Promise<string | null>;
   write(path: string, content: string): Promise<void>;
   move(from: string, to: string): Promise<void>;
+  /** Rename or move a whole folder. */
+  renameDir(from: string, to: string): Promise<void>;
   exists(path: string): Promise<boolean>;
   mkdir(path: string): Promise<void>;
   /** Move a file from anywhere on the Mac into the LifeOS folder. */

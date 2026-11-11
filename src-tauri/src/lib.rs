@@ -218,6 +218,24 @@ fn move_within(state: State<AppState>, from: String, to: String) -> Result<(), S
     move_file(&a, &b)
 }
 
+/// Rename or move a whole folder inside LifeOS (used when a project is renamed).
+#[tauri::command]
+fn rename_dir(state: State<AppState>, from: String, to: String) -> Result<(), String> {
+    let root = root_of(&state)?;
+    let a = safe_join(&root, &from)?;
+    let b = safe_join(&root, &to)?;
+    if a == b {
+        return Ok(());
+    }
+    if b.exists() {
+        return Err(format!("Already exists: {to}"));
+    }
+    if let Some(parent) = b.parent() {
+        fs::create_dir_all(parent).map_err(err)?;
+    }
+    fs::rename(&a, &b).map_err(err)
+}
+
 #[tauri::command]
 fn path_exists(state: State<AppState>, path: String) -> Result<bool, String> {
     let root = root_of(&state)?;
@@ -287,6 +305,7 @@ pub fn run() {
             read_many,
             write_text,
             move_within,
+            rename_dir,
             path_exists,
             make_dir,
             import_file,

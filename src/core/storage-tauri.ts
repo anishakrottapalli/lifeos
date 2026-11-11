@@ -30,6 +30,9 @@ export class TauriStorage implements Storage {
   move(from: string, to: string) {
     return invoke<void>("move_within", { from, to });
   }
+  renameDir(from: string, to: string) {
+    return invoke<void>("rename_dir", { from, to });
+  }
   exists(path: string) {
     return invoke<boolean>("path_exists", { path });
   }

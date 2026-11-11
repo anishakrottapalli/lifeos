@@ -48,6 +48,8 @@ export interface Item {
   /** False when the note file has no id yet (e.g. made in Finder). */
   hasId: boolean;
   module: string;
+  /** For Projects: "project", "section", "docs" or "module" ("" otherwise). */
+  kind: string;
   title: string;
   /** Note file path, relative to LifeOS/. */
   path: string;

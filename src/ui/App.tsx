@@ -6,6 +6,8 @@ import { ModuleView } from "./ModuleView";
 import { ItemView } from "./ItemView";
 import { SettingsView } from "./SettingsView";
 import { SearchPalette } from "./SearchPalette";
+import { ProjectView } from "./ProjectView";
+import { ProjectsView } from "./ProjectsView";
 
 export function App() {
   const store = useStore();
@@ -24,6 +26,14 @@ export function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  // Anything inside a project (its Overview, sections, module pages) opens in the project layout.
+  function renderItem(id: string) {
+    const item = store.index.items.get(id);
+    const project = item && store.index.projectFor(item);
+    if (item && project) return <ProjectView key={project.id} project={project} selectedId={id} go={go} />;
+    return <ItemView key={id} itemId={id} go={go} />;
+  }
 
   if (store.error) {
     return (
@@ -45,8 +55,9 @@ export function App() {
           <div className="preview-banner">Preview mode: sample data in memory. In the Mac app, this is your real LifeOS folder.</div>
         )}
         {route.view === "home" && <Home go={go} />}
-        {route.view === "module" && <ModuleView key={route.id} moduleId={route.id} go={go} />}
-        {route.view === "item" && <ItemView key={route.id} itemId={route.id} go={go} />}
+        {route.view === "module" &&
+          (route.id === "projects" ? <ProjectsView go={go} /> : <ModuleView key={route.id} moduleId={route.id} go={go} />)}
+        {route.view === "item" && renderItem(route.id)}
         {route.view === "settings" && <SettingsView />}
       </main>
       {searchOpen && <SearchPalette go={go} close={() => setSearchOpen(false)} />}

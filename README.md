@@ -46,6 +46,13 @@ Documents/LifeOS/
 - **Links** between items (in any app) are saved inside the note files, so they survive without the app. Every item shows what links to it under "Linked from".
 - **Deleting** moves things into the hidden `.trash` folder (press ⌘⇧. in Finder to see hidden folders).
 
+## Projects
+
+Every project is its own folder with an **Overview** (lean canvas), the Venture sections (**Market Research, Customer Development, UI/UX, Planning, Marketing, Operations, Funding, Financials**), a **Deck** page to attach the deck, and a **Documentation** page for the build log. **+ Today's entry** adds a dated entry at the top.
+
+- **Sub-projects** are project folders inside a project (e.g. My Business → LifeOS).
+- **Module pages** (inside a project's `Modules/` folder) are one page per part, like each LifeOS app, with its own documentation and build log. Module pages don't get the Venture sections. Each LifeOS app has a **Docs** button that opens its page.
+
 ## What's in this first version
 
 - All 19 apps, each with its own folder and fields

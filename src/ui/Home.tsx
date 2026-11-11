@@ -51,7 +51,7 @@ export function Home({ go }: { go: (r: Route) => void }) {
               return (
                 <li key={i.id} className="row" onClick={() => go({ view: "item", id: i.id })}>
                   <span className="row-icon">{m?.icon}</span>
-                  <span className="row-title">{i.title}</span>
+                  <span className="row-title">{store.index.displayTitle(i)}</span>
                   <span className="muted small">{m?.name}</span>
                   <span className="muted small right">{timeAgo(i.updated)}</span>
                 </li>
@@ -74,7 +74,7 @@ export function Home({ go }: { go: (r: Route) => void }) {
                     <span className="app-card-icon">{m.icon}</span>
                     <span className="app-card-name">{m.name}</span>
                     <span className="muted small">{(() => {
-                        const n = store.index.inModule(m.id).length;
+                        const n = store.index.countFor(m.id);
                         return `${n} item${n === 1 ? "" : "s"}`;
                       })()}
                     </span>

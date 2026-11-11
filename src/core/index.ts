@@ -26,6 +26,8 @@ export class LifeIndex {
   byPath = new Map<string, Item>();
   entries: Entry[] = [];
   private back = new Map<string, Backlink[]>();
+  /** Project folder → its project note. */
+  private projectByDir = new Map<string, Item>();
 
   constructor(public modules: ModuleDef[]) {}
 
@@ -57,6 +59,91 @@ export class LifeIndex {
       this.byPath.set(item.path, item);
     }
     this.buildBacklinks();
+    this.projectByDir.clear();
+    for (const i of this.items.values()) {
+      if (i.kind === "project") this.projectByDir.set(dirName(i.path), i);
+    }
+  }
+
+  // ---------- projects ----------
+  projects(): Item[] {
+    // Sorted by folder, so a project always comes right before the projects inside it.
+    return [...this.projectByDir.values()].sort((a, b) => dirName(a.path).localeCompare(dirName(b.path)));
+  }
+
+  /** The project an item belongs to (a project belongs to itself). */
+  projectFor(item: Item): Item | undefined {
+    if (item.kind === "project") return item;
+    let d = dirName(item.path);
+    while (d) {
+      const p = this.projectByDir.get(d);
+      if (p) return p;
+      d = dirName(d);
+    }
+    return undefined;
+  }
+
+  /** The project this project sits inside, if any. */
+  parentProject(project: Item): Item | undefined {
+    let d = dirName(dirName(project.path));
+    while (d) {
+      const p = this.projectByDir.get(d);
+      if (p) return p;
+      d = dirName(d);
+    }
+    return undefined;
+  }
+
+  partsOf(project: Item) {
+    const sections: Item[] = [];
+    const modules: Item[] = [];
+    const subprojects: Item[] = [];
+    const notes: Item[] = [];
+    let docs: Item | undefined;
+    for (const i of this.items.values()) {
+      if (i.id === project.id || i.module !== project.module) continue;
+      if (i.kind === "project") {
+        if (this.parentProject(i)?.id === project.id) subprojects.push(i);
+        continue;
+      }
+      if (this.projectFor(i)?.id !== project.id) continue;
+      if (i.kind === "section") sections.push(i);
+      else if (i.kind === "docs" && !docs) docs = i;
+      else if (i.kind === "module") modules.push(i);
+      else notes.push(i);
+    }
+    const byFile = (a: Item, b: Item) => fileName(a.path).localeCompare(fileName(b.path));
+    sections.sort(byFile);
+    modules.sort((a, b) => a.title.localeCompare(b.title));
+    subprojects.sort((a, b) => a.title.localeCompare(b.title));
+    notes.sort((a, b) => a.title.localeCompare(b.title));
+    return { sections, docs, modules, subprojects, notes };
+  }
+
+  /** Plain notes in Projects that aren't part of any project (e.g. made before projects had folders). */
+  looseProjectNotes(): Item[] {
+    return [...this.items.values()].filter((i) => i.module === "projects" && !i.kind && !this.projectFor(i));
+  }
+
+  /** How many things an app holds (for Projects: projects, not their sections). */
+  countFor(moduleId: string): number {
+    if (moduleId === "projects") return this.projectByDir.size;
+    return this.inModule(moduleId).length;
+  }
+
+  /** "LifeOS › Market Research" for pages inside a project; the plain title otherwise. */
+  displayTitle(item: Item): string {
+    if (!item.kind || item.kind === "project") return item.title;
+    const p = this.projectFor(item);
+    return p ? `${p.title} › ${item.title}` : item.title;
+  }
+
+  /** The documentation page for one of LifeOS's own apps, if a project has one. */
+  docsForApp(appId: string): Item | undefined {
+    for (const i of this.items.values()) {
+      if (i.kind === "module" && i.fields["App"] === appId) return i;
+    }
+    return undefined;
   }
 
   private buildBacklinks() {

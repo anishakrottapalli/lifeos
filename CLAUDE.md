@@ -18,6 +18,10 @@ The owner is not a coder. Explain changes in plain language, and keep the app mi
 - `src/core/store.ts`: all actions, run one at a time through a queue.
 - `src/ui/*`: React screens. `src/core/storage-memory.ts` is a fake folder for browser previews and tests.
 
+## Projects app
+
+Each project is a folder: `<Name>/<Name>.md` is the project and its Overview (`kind: project`), then `02 Market Research.md` … `10 Deck.md` (`kind: section`, fixed names), and `Documentation.md` (`kind: docs`, the build log, newest first). `Modules/<Name>.md` (`kind: module`) is a module's own documentation and build log, with `App: <app id>` for LifeOS's own apps. Module pages never get the Venture sections. Sub-projects are project folders inside a project folder. Renaming or moving a project moves its whole folder (`rename_dir`). Templates live in `src/core/projects.ts`.
+
 ## Older Mac
 
 The owner's MacBook (2014) runs macOS Big Sur with Safari 16.6, which LifeOS's window uses. Some libraries use class methods with private names (`#e() {}`), which that Safari can't parse, giving a blank window. `marked` was removed for this reason; the notes preview is the built-in `src/ui/markdown.ts`. `src/compat.test.ts` fails if a screen library brings that syntax back, so add every new runtime dependency to its list. The build target is es2020.

@@ -211,3 +211,23 @@ section { margin-bottom: 22px; }
 .card h3 { margin-bottom: 8px; }
 .card p { margin: 6px 0; }
 ul.plain { margin: 6px 0 0; padding-left: 18px; line-height: 1.7; }
+
+/* ---------- projects ---------- */
+.project { display: flex; min-height: 100%; }
+.project-nav {
+  width: 220px; flex-shrink: 0; border-right: 1px solid var(--line); padding: 20px 10px 40px;
+  display: flex; flex-direction: column; gap: 2px; position: sticky; top: 0; align-self: flex-start;
+  max-height: 100vh; overflow-y: auto;
+}
+.project-nav .crumbs { padding: 0 8px; flex-wrap: wrap; }
+.project-nav .nav-group-title { margin-top: 14px; }
+.project-nav .nav-item.muted { color: var(--muted); font-size: 12px; }
+.project-title { font-size: 17px; font-weight: 650; padding: 6px 8px 2px; }
+.project-nav .pill { align-self: flex-start; margin-left: 8px; }
+.project-main { flex: 1; min-width: 0; }
+.item-page.embedded { padding-top: 22px; }
+.title-input[readonly] { cursor: default; }
+.title-input[readonly]:focus { box-shadow: none; }
+.pill.no-margin { margin-left: 0; }
+.form-rows { display: flex; flex-direction: column; gap: 12px; margin: 14px 0; }
+.modal-actions .left { margin-right: auto; }

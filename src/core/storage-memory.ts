@@ -136,6 +136,17 @@ export class MemoryStorage implements Storage {
     this.files.set(to, { ...f, mtime: Date.now() });
     this.changed();
   }
+  async renameDir(from: string, to: string) {
+    if (from === to) return;
+    if (await this.exists(to)) throw new Error(`Already exists: ${to}`);
+    for (const [p, f] of [...this.files.entries()]) {
+      if (p.startsWith(from + "/")) {
+        this.files.delete(p);
+        this.files.set(to + p.slice(from.length), f);
+      }
+    }
+    this.changed();
+  }
   async exists(path: string) {
     if (this.files.has(path)) return true;
     for (const k of this.files.keys()) if (k.startsWith(path + "/")) return true;

@@ -36,7 +36,7 @@ export function FieldEditor({ moduleId, close }: { moduleId: string; close: () =
     const keys = fields.map((f) => f.key.trim());
     if (keys.some((k) => !k)) return setError("Every field needs a name.");
     if (new Set(keys).size !== keys.length) return setError("Two fields have the same name.");
-    if (keys.some((k) => ["id", "module", "title", "created", "updated", "tags", "links", "files"].includes(k)))
+    if (keys.some((k) => ["id", "module", "kind", "title", "created", "updated", "tags", "links", "files"].includes(k)))
       return setError("That name is used by LifeOS itself. Pick another.");
     const out: FieldDef[] = fields.map((f) => {
       const def: FieldDef = { key: f.key.trim(), type: f.type };

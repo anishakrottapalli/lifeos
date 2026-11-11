@@ -34,7 +34,7 @@ export function SearchPalette({ go, close }: { go: (r: Route) => void; close: ()
             return (
               <li key={i.id} className={`row ${n === sel ? "selected" : ""}`} onMouseEnter={() => setSel(n)} onClick={() => choose(i.id)}>
                 <span className="row-icon">{m?.icon}</span>
-                <span className="row-title">{i.title}</span>
+                <span className="row-title">{store.index.displayTitle(i)}</span>
                 <span className="muted small">
                   {m?.name}
                   {i.folder ? ` / ${i.folder}` : ""}

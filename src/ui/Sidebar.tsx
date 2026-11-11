@@ -34,7 +34,7 @@ export function Sidebar({ route, go, openSearch }: { route: Route; go: (r: Route
                 <span className="nav-label">{m.name}</span>
                 {m.storage === "anywhere" && <span className="badge" title="Anywhere group: syncs">☁</span>}
                 {m.locked && <span className="badge" title="Locked: private">🔒</span>}
-                <span className="count">{store.index.inModule(m.id).length || ""}</span>
+                <span className="count">{store.index.countFor(m.id) || ""}</span>
               </button>
             ))}
         </div>

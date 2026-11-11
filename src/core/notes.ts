@@ -6,7 +6,7 @@ import YAML from "yaml";
 import type { Item, Link, ModuleDef } from "./types";
 import { fileName, stripExt } from "./paths";
 
-const RESERVED = ["id", "module", "title", "created", "updated", "tags", "links", "files"];
+const RESERVED = ["id", "module", "kind", "title", "created", "updated", "tags", "links", "files"];
 
 export interface ParsedNote {
   meta: Record<string, unknown>;
@@ -68,6 +68,7 @@ export function parseItem(path: string, text: string, module: string, folder: st
     id: id || `path:${path}`,
     hasId: Boolean(id),
     module,
+    kind: asString(meta.kind),
     title: asString(meta.title) || stripExt(fileName(path)),
     path,
     folder,
@@ -96,6 +97,7 @@ export function serializeItem(item: Item, mod?: ModuleDef): string {
   const meta: Record<string, unknown> = {};
   if (item.hasId) meta.id = item.id;
   meta.module = item.module;
+  if (item.kind) meta.kind = item.kind;
   meta.title = item.title;
   if (item.created) meta.created = item.created;
   if (item.updated) meta.updated = item.updated;

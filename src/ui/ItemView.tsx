@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import type { FieldDef, Item } from "../core/types";
-import { dirName, join } from "../core/paths";
+import { dirName, join, today } from "../core/paths";
 import { displayValue, timeAgo, useStore, type Route } from "./hooks";
 import { LinkPicker } from "./LinkPicker";
 import { renderMarkdown } from "./markdown";
 
 const SAVE_DELAY = 700;
 
-export function ItemView({ itemId, go }: { itemId: string; go: (r: Route) => void }) {
+/** Section and Documentation pages keep their names; projects rename by moving their whole folder. */
+const fixedName = (i: Item) => i.kind === "section" || i.kind === "docs";
+
+export function ItemView({ itemId, go, embedded = false }: { itemId: string; go: (r: Route) => void; embedded?: boolean }) {
   const store = useStore();
   const stored = store.index.items.get(itemId);
   const [draft, setDraft] = useState<Item | undefined>(stored);
@@ -20,6 +23,10 @@ export function ItemView({ itemId, go }: { itemId: string; go: (r: Route) => voi
   latest.current = draft;
   const dirtyRef = useRef(false);
   dirtyRef.current = dirty;
+  // A project's "Folder" box is the folder it sits in (e.g. "My Business/Software").
+  const [parentFolder, setParentFolder] = useState(() => (stored?.kind === "project" ? dirName(stored.folder) : ""));
+  const parentRef = useRef(parentFolder);
+  parentRef.current = parentFolder;
 
   // When the file changes outside the editor (Finder, another window) and
   // there are no unsaved edits here, show the new version.
@@ -32,7 +39,10 @@ export function ItemView({ itemId, go }: { itemId: string; go: (r: Route) => voi
     () => () => {
       clearTimeout(timer.current);
       const d = latest.current;
-      if (d && dirtyRef.current) store.saveItem(d, { rename: true });
+      if (d && dirtyRef.current) {
+        if (d.kind === "project") store.moveProject(d, d.title, parentRef.current);
+        else store.saveItem(d, { rename: !fixedName(d) });
+      }
     },
     [store],
   );
@@ -51,7 +61,10 @@ export function ItemView({ itemId, go }: { itemId: string; go: (r: Route) => voi
     clearTimeout(timer.current);
     setStatus("Saving…");
     try {
-      const saved = await store.saveItem(item, { rename });
+      const saved =
+        rename && item.kind === "project"
+          ? await store.moveProject(item, item.title, parentRef.current)
+          : await store.saveItem(item, { rename: rename && !fixedName(item) && item.kind !== "project" });
       setDirty(false);
       setStatus("Saved");
       if (saved.id !== itemId) go({ view: "item", id: saved.id });
@@ -72,18 +85,29 @@ export function ItemView({ itemId, go }: { itemId: string; go: (r: Route) => voi
   }
 
   const setField = (key: string, value: unknown) => change({ fields: { ...draft.fields, [key]: value } });
-  const otherKeys = Object.keys(draft.fields).filter((k) => !mod.fields.some((f) => f.key === k));
+  const isProject = draft.kind === "project";
+  const isModulePage = draft.kind === "module";
+  const isLog = draft.kind === "docs" || isModulePage;
+  const shownFields = isProject || !draft.kind ? mod.fields : [];
+  const ownKeys = isModulePage ? ["App", "Status"] : shownFields.map((f) => f.key);
+  const otherKeys = Object.keys(draft.fields).filter((k) => !ownKeys.includes(k));
+  const owner = store.index.projectFor(draft);
   const backlinks = store.index.backlinks(draft.id);
   const folders = store.index.subfolders(draft.module);
   const dir = dirName(draft.path);
 
   return (
-    <div className="page item-page">
+    <div className={`page item-page ${embedded ? "embedded" : ""}`}>
       <div className="crumbs">
-        <button className="link" onClick={() => go({ view: "module", id: mod.id })}>
-          {mod.icon} {mod.name}
-        </button>
-        {draft.folder && <span className="muted"> / {draft.folder}</span>}
+        {!embedded && (
+          <>
+            <button className="link" onClick={() => go({ view: "module", id: mod.id })}>
+              {mod.icon} {mod.name}
+            </button>
+            {draft.folder && <span className="muted"> / {draft.folder}</span>}
+          </>
+        )}
+        {embedded && owner && !isProject && <span className="muted small">{owner.title}</span>}
         <span className="status muted small">{status}</span>
       </div>
 
@@ -93,11 +117,31 @@ export function ItemView({ itemId, go }: { itemId: string; go: (r: Route) => voi
         placeholder="Title"
         onChange={(e) => change({ title: e.target.value })}
         onBlur={() => dirtyRef.current && persist(latest.current!, true)}
+        readOnly={fixedName(draft)}
+        title={fixedName(draft) ? "Section names stay the same in every project" : undefined}
         autoFocus={draft.title === "Untitled"}
         onFocus={(e) => draft.title === "Untitled" && e.target.select()}
       />
 
       <div className="meta-row">
+        {isProject ? (
+          <label className="meta">
+            <span className="muted small">Inside folder</span>
+            <input
+              list="folder-options"
+              value={parentFolder}
+              placeholder="(top of Projects)"
+              onChange={(e) => {
+                setParentFolder(e.target.value);
+                setDirty(true);
+                setStatus("Editing…");
+              }}
+              onBlur={() => dirtyRef.current && persist(latest.current!, true)}
+            />
+          </label>
+        ) : draft.kind ? (
+          <span />
+        ) : (
         <label className="meta">
           <span className="muted small">Folder</span>
           <input
@@ -113,30 +157,87 @@ export function ItemView({ itemId, go }: { itemId: string; go: (r: Route) => voi
             ))}
           </datalist>
         </label>
+        )}
+        {isProject && (
+          <datalist id="folder-options">
+            {folders.map((f) => (
+              <option key={f} value={f} />
+            ))}
+          </datalist>
+        )}
         <div className="actions">
+          {draft.module === "projects" && !draft.kind && (
+            <button
+              title="Give it its own folder with Overview, the Venture sections, a Deck and Documentation"
+              onClick={async () => {
+                if (dirty) await persist(latest.current!, false);
+                const p = await store.convertToProject(store.index.items.get(draft.id) ?? latest.current!);
+                go({ view: "item", id: p.id });
+              }}
+            >
+              Turn into project
+            </button>
+          )}
           <button onClick={() => store.storage.reveal(draft.path)}>Show in Finder</button>
           <button onClick={() => store.storage.open(draft.path)}>Open note file</button>
-          <button
-            className="danger"
-            onClick={async () => {
-              if (!confirm(`Move "${draft.title}" to LifeOS's trash? (It's kept in LifeOS/.trash.)`)) return;
-              clearTimeout(timer.current);
-              setDirty(false);
-              dirtyRef.current = false;
-              await store.deleteItem(draft);
-              go({ view: "module", id: mod.id });
-            }}
-          >
-            Delete
-          </button>
+          {!fixedName(draft) && (
+            <button
+              className="danger"
+              onClick={async () => {
+                const what = isProject
+                  ? `the whole "${draft.title}" project folder (its sections, modules and sub-projects)`
+                  : `"${draft.title}"`;
+                if (!confirm(`Move ${what} to LifeOS's trash? (It's kept in LifeOS/.trash.)`)) return;
+                clearTimeout(timer.current);
+                setDirty(false);
+                dirtyRef.current = false;
+                const parent = isProject ? store.index.parentProject(draft) : owner;
+                if (isProject) await store.deleteProject(draft);
+                else await store.deleteItem(draft);
+                if (parent && parent.id !== draft.id) go({ view: "item", id: parent.id });
+                else go({ view: "module", id: mod.id });
+              }}
+            >
+              Delete
+            </button>
+          )}
         </div>
       </div>
 
-      {mod.fields.length > 0 && (
+      {shownFields.length > 0 && (
         <section className="fields">
-          {mod.fields.map((f) => (
+          {shownFields.map((f) => (
             <FieldInput key={f.key} def={f} value={draft.fields[f.key]} onChange={(v) => setField(f.key, v)} />
           ))}
+        </section>
+      )}
+      {isModulePage && (
+        <section className="fields">
+          <label className="field">
+            <span className="field-label">LifeOS app it's about</span>
+            <select value={displayValue(draft.fields["App"])} onChange={(e) => setField("App", e.target.value)}>
+              <option value="">—</option>
+              {store.modules
+                .filter((m) => m.id !== "projects")
+                .map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.icon} {m.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <FieldInput
+            def={{ key: "Status", type: "select", options: ["Idea", "Planned", "Building", "Live"] }}
+            value={draft.fields["Status"]}
+            onChange={(v) => setField("Status", v)}
+          />
+          {draft.fields["App"] ? (
+            <span className="field check">
+              <button className="small-button" onClick={() => go({ view: "module", id: String(draft.fields["App"]) })}>
+                Open the app →
+              </button>
+            </span>
+          ) : null}
         </section>
       )}
 
@@ -144,10 +245,24 @@ export function ItemView({ itemId, go }: { itemId: string; go: (r: Route) => voi
 
       <section className="body-section">
         <div className="section-head">
-          <h3>Notes</h3>
-          <button className="small-button" onClick={() => setPreview((p) => !p)}>
-            {preview ? "Edit" : "Preview"}
-          </button>
+          <h3>{isLog ? "Notes and build log" : "Notes"}</h3>
+          <span className="row-actions">
+            {isLog && (
+              <button
+                className="small-button"
+                title="Add a dated entry at the top of the build log"
+                onClick={() => {
+                  setPreview(false);
+                  change({ body: addLogEntry(latest.current!.body, today(), isModulePage ? "###" : "##") }, { now: true });
+                }}
+              >
+                + Today's entry
+              </button>
+            )}
+            <button className="small-button" onClick={() => setPreview((p) => !p)}>
+              {preview ? "Edit" : "Preview"}
+            </button>
+          </span>
         </div>
         {preview ? (
           <div className="markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(draft.body || "*Nothing written yet.*") }} />
@@ -435,4 +550,23 @@ function TagInput({ tags, all, onChange }: { tags: string[]; all: string[]; onCh
       </div>
     </section>
   );
+}
+
+/** Put a dated entry ("## 2026-11-10") at the top of a build log, unless today's is already there. */
+export function addLogEntry(body: string, date: string, level: "##" | "###"): string {
+  const heading = `${level} ${date}`;
+  if (body.split("\n").some((l) => l.trim() === heading)) return body;
+  const entry = `${heading}\n\n- \n\n`;
+  const lines = body.split("\n");
+  const firstDated = lines.findIndex((l) => /^#{2,3} \d{4}-\d{2}-\d{2}\s*$/.test(l));
+  if (firstDated !== -1) {
+    lines.splice(firstDated, 0, ...entry.trimEnd().split("\n"), "");
+    return lines.join("\n");
+  }
+  const logHeading = lines.findIndex((l) => /^##\s+Build log\s*$/i.test(l));
+  if (logHeading !== -1) {
+    lines.splice(logHeading + 1, 0, "", ...entry.trimEnd().split("\n"));
+    return lines.join("\n");
+  }
+  return `${body.replace(/\s+$/, "")}\n\n${entry}`;
 }
