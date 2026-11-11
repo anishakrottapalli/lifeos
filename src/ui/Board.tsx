@@ -11,16 +11,19 @@ import { ALL_PARTS, DOCS_KEY, OVERVIEW_KEY, VENTURE_PART_KEYS, hasOverview } fro
 import { inTauri } from "../core/storage";
 import { newId } from "../core/ids";
 import { useStore, type Route } from "./hooks";
+import { Modal } from "./Modal";
+import { renderMarkdown } from "./markdown";
 
 const IMAGE = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp"];
 const VIDEO = [".mp4", ".mov", ".m4v", ".webm"];
 const SAVE_DELAY = 700;
 
-type Kind = "image" | "video" | "other";
+type Kind = "image" | "video" | "markdown" | "other";
 function fileKind(name: string): Kind {
   const ext = extName(name).toLowerCase();
   if (IMAGE.includes(ext)) return "image";
   if (VIDEO.includes(ext)) return "video";
+  if ([".md", ".markdown", ".txt"].includes(ext)) return "markdown";
   return "other";
 }
 
@@ -281,7 +284,7 @@ export function Board({ project, go }: { project: Item; go: (r: Route) => void }
     <div className="board-wrap">
       <div className="board-bar">
         <button onClick={addText}>+ Text</button>
-        <button onClick={async () => addFiles(await store.storage.pickFiles())}>+ Pictures, videos & files</button>
+        <button onClick={async () => addFiles(await store.storage.pickFiles())}>+ Pictures, videos, notes & files</button>
         {missingParts.length > 0 && (
           <select
             value={adding}
@@ -399,12 +402,13 @@ function FileBody({ path, name }: { path: string; name: string }) {
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
-    if (kind !== "other") store.storage.fileUrl(path).then((u) => alive && setUrl(u));
+    if (kind === "image" || kind === "video") store.storage.fileUrl(path).then((u) => alive && setUrl(u));
     return () => {
       alive = false;
     };
   }, [path, kind, store.storage]);
 
+  if (kind === "markdown") return <MarkdownBody path={path} name={name} />;
   if (kind === "image" && url) {
     return <img className="bcard-media" src={url} alt={name} draggable={false} onDoubleClick={() => store.storage.open(path)} title="Double-click to open" />;
   }
@@ -416,5 +420,47 @@ function FileBody({ path, name }: { path: string; name: string }) {
       <span className="bcard-file-icon">{kind === "image" ? "🖼️" : kind === "video" ? "🎬" : "📎"}</span>
       <span>{name}</span>
     </button>
+  );
+}
+
+/** A Markdown file on the Board: a taste of it in the card, the whole thing in a big window when clicked. */
+function MarkdownBody({ path, name }: { path: string; name: string }) {
+  const store = useStore();
+  const [text, setText] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      store.storage.read(path).then((t) => {
+        if (alive) setText((t ?? "").replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, ""));
+      });
+    load();
+    const off = store.storage.onChange(load);
+    return () => {
+      alive = false;
+      off();
+    };
+  }, [path, store.storage]);
+
+  return (
+    <>
+      <button className="bcard-file bcard-md" onClick={() => setOpen(true)} title="Click to read the whole file">
+        <span className="bcard-md-text">{text === null ? "…" : snippet(text) || "Empty file"}</span>
+      </button>
+      {open && (
+        <Modal close={() => setOpen(false)}>
+          <div className="md-reader">
+            <h2>{name.replace(/\.[^.]+$/, "")}</h2>
+            <div className="markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(text || "*Nothing written yet.*") }} />
+            <div className="modal-actions">
+              <button onClick={() => store.storage.open(path)}>Edit in another app</button>
+              <button className="primary" onClick={() => setOpen(false)}>
+                Close
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </>
   );
 }
