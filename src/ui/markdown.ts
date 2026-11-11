@@ -18,7 +18,12 @@ function inline(s: string): string {
   return out;
 }
 
-export function renderMarkdown(text: string): string {
+const AUDIO_EXT = /\.(m4a|mp3|wav|aac|aiff|caf|ogg|flac)$/i;
+
+/** Journal days: a line like ![](photo.jpg) shows that file right there, a picture or an audio player. */
+export type MediaResolver = (name: string) => string | null | undefined;
+
+export function renderMarkdown(text: string, media?: MediaResolver): string {
   const lines = text.replace(/\r\n/g, "\n").split("\n");
   const html: string[] = [];
   let para: string[] = [];
@@ -42,6 +47,22 @@ export function renderMarkdown(text: string): string {
       i++;
       while (i < lines.length && !/^```/.test(lines[i])) code.push(lines[i++]);
       html.push(`<pre><code>${escapeHtml(code.join("\n"))}</code></pre>`);
+      continue;
+    }
+    const image = media ? /^\s*!\[([^\]]*)\]\(([^)]+)\)\s*$/.exec(line) : null;
+    if (image) {
+      flushPara();
+      flushList();
+      let name = image[2];
+      try {
+        name = decodeURIComponent(name);
+      } catch {
+        /* keep the name as typed */
+      }
+      const url = media!(name);
+      if (!url) html.push(`<p class="muted small">${escapeHtml(name)}</p>`);
+      else if (AUDIO_EXT.test(name)) html.push(`<audio controls preload="metadata" src="${escapeHtml(url)}"></audio>`);
+      else html.push(`<img class="md-img" src="${escapeHtml(url)}" alt="${escapeHtml(image[1] || name)}" />`);
       continue;
     }
     const heading = /^(#{1,6})\s+(.*)$/.exec(line);
