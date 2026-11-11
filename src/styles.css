@@ -291,3 +291,10 @@ ul.plain { margin: 6px 0 0; padding-left: 18px; line-height: 1.7; }
 .folder-row { display: flex; align-items: center; gap: 6px; }
 .folder-row input { flex: 1; }
 .folder-path { margin-left: 0; }
+.journal-img { display: block; width: 100%; height: auto; border-radius: var(--radius); border: 1px solid var(--line); }
+.journal-rec { gap: 12px; }
+.journal-rec audio { max-width: 260px; }
+.item-page.dropping { outline: 3px dashed var(--muted); outline-offset: -6px; }
+.md-img { display: block; max-width: 100%; height: auto; border-radius: var(--radius); margin: 10px 0; }
+.markdown audio { display: block; width: 100%; max-width: 420px; margin: 10px 0; }
+.journal-rec .journal-img { width: 120px; }

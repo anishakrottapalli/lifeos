@@ -4,6 +4,7 @@ import { Sidebar } from "./Sidebar";
 import { Home } from "./Home";
 import { ModuleView } from "./ModuleView";
 import { BlankApp, SHOW_APP_LISTS } from "./BlankApp";
+import { JournalDay, JournalList } from "./JournalView";
 import { ItemView } from "./ItemView";
 import { SettingsView } from "./SettingsView";
 import { SearchPalette } from "./SearchPalette";
@@ -33,6 +34,7 @@ export function App() {
     const item = store.index.items.get(id);
     const project = item && store.index.projectFor(item);
     if (item && project) return <ProjectView key={project.id} project={project} selectedId={id} details={details} go={go} />;
+    if (item?.module === "journal") return <JournalDay key={id} itemId={id} go={go} />;
     return <ItemView key={id} itemId={id} go={go} />;
   }
 
@@ -57,7 +59,7 @@ export function App() {
         )}
         {route.view === "home" && <Home go={go} />}
         {route.view === "module" &&
-          (route.id === "projects" ? <ProjectsView go={go} /> : (SHOW_APP_LISTS ? <ModuleView key={route.id} moduleId={route.id} go={go} /> : <BlankApp key={route.id} moduleId={route.id} />))}
+          (route.id === "projects" ? <ProjectsView go={go} /> : route.id === "journal" ? <JournalList go={go} /> : (SHOW_APP_LISTS ? <ModuleView key={route.id} moduleId={route.id} go={go} /> : <BlankApp key={route.id} moduleId={route.id} />))}
         {route.view === "item" && renderItem(route.id, route.page === "details")}
         {route.view === "settings" && <SettingsView />}
       </main>

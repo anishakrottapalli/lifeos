@@ -392,3 +392,30 @@ describe("older projects", () => {
     expect(store.index.items.get("abc")!.board?.[0].text).toBe("hi");
   });
 });
+
+describe("journal days", () => {
+  it("makes one folder per day, keeps added files under their own names", async () => {
+    const { mem, store } = await fresh();
+    const day = await store.openJournalDay("2026-11-11");
+    expect(day.path).toBe("Journal/2026-11-11/2026-11-11.md");
+    expect((await store.openJournalDay("2026-11-11")).id).toBe(day.id);
+    mem.external.set("/Users/you/Desktop/walk.jpg", "JPG");
+    mem.external.set("/Users/you/Desktop/memo.m4a", "AUDIO");
+    await store.addJournalFiles(day, ["/Users/you/Desktop/walk.jpg", "/Users/you/Desktop/memo.m4a"]);
+    expect(mem.files.has("Journal/2026-11-11/walk.jpg")).toBe(true);
+    expect(mem.files.has("Journal/2026-11-11/memo.m4a")).toBe(true);
+    await store.removeJournalFile(day, "walk.jpg");
+    expect(mem.files.has("Journal/2026-11-11/walk.jpg")).toBe(false);
+    await store.deleteJournalDay(day);
+    expect([...mem.files.keys()].some((p) => p.startsWith("Journal/2026-11-11/"))).toBe(false);
+  });
+
+  it("a line like ![](photo.jpg) shows that file inside the text", async () => {
+    const { renderMarkdown } = await import("../ui/markdown");
+    const html = renderMarkdown("Morning.\n\n![](my%20photo.jpg)\n\n![](voice.m4a)\n\nEvening.", (n) => `file://${n}`);
+    expect(html).toContain('<img class="md-img" src="file://my photo.jpg"');
+    expect(html).toContain('<audio controls');
+    expect(html.indexOf("Morning")).toBeLessThan(html.indexOf("<img"));
+    expect(html.indexOf("<audio")).toBeLessThan(html.indexOf("Evening"));
+  });
+});

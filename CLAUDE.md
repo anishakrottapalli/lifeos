@@ -24,6 +24,10 @@ Each project is a folder: `<Name>/<name>.lifeos` is the project (`kind: project`
 
 **The Board** (`src/ui/Board.tsx`) is every project's main screen: a freeform canvas of cards. Its layout is the project file's reserved `board:` list (`BoardCard`: `text` cards hold their text, `file` cards name a file in the project folder, `page` cards point at a section/docs page id or `overview`). Files dropped or added on the Board are moved into the project folder under their own names and listed in the note's `files`, so they never show as loose. Pages and files not yet on the Board get a card automatically. Removing a file card moves the file to `.trash`. Pictures and videos are shown through Tauri's asset protocol: `open_root` allows only the LifeOS folder, and `full_path` turns a relative path into a full one (still via `safe_join`).
 
+## Journal app
+
+`Journal/<date>/<date>.md` is a day's writing (`openJournalDay`); pictures and audio recordings are separate files in the same folder, kept under their own names. A line in the text like `![](photo.jpg)` (or an audio file) shows that file at that spot; `renderMarkdown(text, resolver)` draws it. Files in the folder that the text doesn't mention are listed under the text, so files added in Finder show up. Screens: `src/ui/JournalView.tsx`. Other apps are blank pages for now (`src/ui/BlankApp.tsx`).
+
 ## Older Mac
 
 The owner's MacBook (2014) runs macOS Big Sur with Safari 16.6, which LifeOS's window uses. Some libraries use class methods with private names (`#e() {}`), which that Safari can't parse, giving a blank window. `marked` was removed for this reason; the notes preview is the built-in `src/ui/markdown.ts`. `src/compat.test.ts` fails if a screen library brings that syntax back, so add every new runtime dependency to its list. The build target is es2020.

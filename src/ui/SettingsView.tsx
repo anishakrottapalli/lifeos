@@ -60,7 +60,7 @@ export function SettingsView() {
       <section className="card">
         <h3>How your files are organized</h3>
         <ul className="plain">
-          <li>Each item is a Markdown note file (.md); each project is one .lifeos file. Its fields sit at the top; your writing goes underneath.</li>
+          <li>Each item is a Markdown note file (.md); each project is one .lifeos file. A Journal day is a folder holding its text, pictures and recordings. Its fields sit at the top; your writing goes underneath.</li>
           <li>Attached files sit next to their note, in the same folder, and are moved (not copied) in.</li>
           <li>Changes you make in Finder show up here automatically.</li>
           <li>

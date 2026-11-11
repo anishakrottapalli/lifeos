@@ -516,6 +516,64 @@ export class LifeStore {
     });
   }
 
+  // ---------- Journal: one folder per day ----------
+  /** The day's text page, "Journal/2026-11-11/2026-11-11.md". Makes the day if it isn't there yet. */
+  async openJournalDay(date: string): Promise<Item> {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Pick a date.");
+    return this.run(async () => {
+      const mod = this.module("journal");
+      if (!mod) throw new Error("The Journal app isn't available.");
+      const path = join(mod.folder, date, `${date}.md`);
+      const existing = this.index.byPath.get(path);
+      if (existing) return existing;
+      const item = this.blankItem(mod.id, "", date, path, "", date);
+      item.fields = { Date: date };
+      await this.writeNote(path, serializeItem(item, mod));
+      await this.rescanNow();
+      return this.index.items.get(item.id) ?? item;
+    });
+  }
+
+  /** Move pictures, recordings or any files into the day's folder, keeping their names. */
+  async addJournalFiles(day: Item, absPaths: string[]): Promise<void> {
+    return this.run(async () => {
+      const dir = dirName(day.path);
+      for (const abs of absPaths) {
+        const orig = abs.split(/[\\/]/).pop() || "file";
+        const name = uniqueName(safeName(stripExt(orig)), extName(orig), this.taken(dir));
+        await this.storage.importFile(abs, join(dir, name));
+        this.index.entries.push({ path: join(dir, name), mtime: Date.now(), size: 0 });
+      }
+      await this.rescanNow();
+    });
+  }
+
+  /** Move one file from a day to LifeOS/.trash. */
+  async removeJournalFile(day: Item, name: string): Promise<void> {
+    return this.run(async () => {
+      const p = join(dirName(day.path), name);
+      if (await this.storage.exists(p)) {
+        const stamp = nowStamp().replace(/[:T]/g, "-");
+        await this.storage.move(p, join(".trash", stamp, p));
+      }
+      await this.rescanNow();
+    });
+  }
+
+  /** Move a whole day (its text, pictures and recordings) to LifeOS/.trash. */
+  async deleteJournalDay(day: Item): Promise<void> {
+    return this.run(async () => {
+      const dir = dirName(day.path);
+      const stamp = nowStamp().replace(/[:T]/g, "-");
+      const base = join(".trash", stamp, dir);
+      let target = base;
+      for (let n = 2; await this.storage.exists(target); n++) target = `${base} ${n}`;
+      await this.storage.renameDir(dir, target);
+      for (const p of [...this.cache.keys()]) if (p.startsWith(dir + "/")) this.cache.delete(p);
+      await this.rescanNow();
+    });
+  }
+
   /** Take a card off the Board. A file card's file goes to LifeOS/.trash (recoverable). */
   async removeBoardCard(project: Item, card: BoardCard): Promise<Item> {
     return this.run(async () => {
