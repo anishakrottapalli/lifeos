@@ -54,11 +54,11 @@ export const DEFAULT_MODULES: ModuleDef[] = [
     icon: "🗂️",
     folder: "Projects",
     group: "Plan",
-    description: "My Business and its divisions, plus personal projects. Use the folder to nest (e.g. My Business/Software).",
+    description: "Personal projects and ventures. Use the folder to nest (e.g. Ventures/Software).",
     storage: "mac",
     linkKinds: ["part of", "goal", "related"],
     fields: [
-      f("Type", "select", ["Business", "Venture", "Design project", "Personal build", "Other"]),
+      f("Type", "select", ["Personal", "Venture", "Design project", "Personal build", "Other"]),
       f("Status", "select", ["Idea", "Active", "Paused", "Done"]),
       f("Division", "select", ["Content", "Software", "Services"]),
       f("Start", "date"),

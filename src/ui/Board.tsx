@@ -7,7 +7,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { BoardCard, Item } from "../core/types";
 import { dirName, extName, join } from "../core/paths";
-import { ALL_PARTS, DOCS_KEY, OVERVIEW_KEY, hasOverview } from "../core/projects";
+import { ALL_PARTS, DOCS_KEY, OVERVIEW_KEY, VENTURE_PART_KEYS, hasOverview } from "../core/projects";
 import { inTauri } from "../core/storage";
 import { newId } from "../core/ids";
 import { useStore, type Route } from "./hooks";
@@ -289,11 +289,15 @@ export function Board({ project, go }: { project: Item; go: (r: Route) => void }
               const key = e.target.value;
               if (!key) return;
               setAdding(key);
-              await store.addPart(store.index.items.get(project.id) ?? project, key);
+              const keys = key === "venture" ? missingParts.map((p) => p.key).filter((k) => VENTURE_PART_KEYS.includes(k)) : [key];
+              for (const k of keys) await store.addPart(store.index.items.get(project.id) ?? project, k);
               setAdding("");
             }}
           >
             <option value="">+ Add a section…</option>
+            {missingParts.filter((p) => VENTURE_PART_KEYS.includes(p.key)).length > 1 && (
+              <option value="venture">The whole Venture Ideation System</option>
+            )}
             {missingParts.map((p) => (
               <option key={p.key} value={p.key}>
                 {p.label}

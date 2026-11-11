@@ -114,8 +114,8 @@ export function ProjectView({
           heading={`New sub-project in ${project.title}`}
           fixedFolder={projectRel}
           close={() => setAdding("")}
-          create={async (title, _folder, parts) => {
-            const p = await store.createProject(title, projectRel, {}, parts);
+          create={async (title, _folder, parts, fields) => {
+            const p = await store.createProject(title, projectRel, fields, parts);
             setAdding("");
             go({ view: "item", id: p.id });
           }}

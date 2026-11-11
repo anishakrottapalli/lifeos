@@ -240,6 +240,13 @@ export const ALL_PARTS: PartDef[] = [
 
 export const ALL_PART_KEYS: PartKey[] = ALL_PARTS.map((p) => p.key);
 
+/** The Venture Ideation System: the Overview, the Venture sections and the Deck. */
+export const VENTURE_PART_KEYS: PartKey[] = [OVERVIEW_KEY, ...SECTIONS.map((s) => s.file)];
+
+/** Top folders inside Projects for each kind of project. */
+export const PROJECT_GROUPS = { Personal: "Personal", Venture: "Ventures" } as const;
+export type ProjectGroup = keyof typeof PROJECT_GROUPS;
+
 /** True when a project's Overview text has been started (so it shows on the Board). */
 export function hasOverview(body: string): boolean {
   return body.trim().length > 0;
