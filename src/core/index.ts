@@ -63,10 +63,12 @@ export class LifeIndex {
     for (const i of this.items.values()) {
       if (i.kind === "project") {
         this.projectByDir.set(dirName(i.path), i);
-        // The Board layout lives in projectboard.lifeos next to the project note.
-        const text = noteText.get(join(dirName(i.path), BOARD_FILE));
-        const board = text === undefined ? undefined : parseBoardFile(text);
-        if (board) i.board = board;
+        // Older projects (still a .md file) kept their Board in projectboard.lifeos.
+        if (!i.path.endsWith(".lifeos")) {
+          const text = noteText.get(join(dirName(i.path), BOARD_FILE));
+          const board = text === undefined ? undefined : parseBoardFile(text);
+          if (board) i.board = board;
+        }
       }
     }
   }
