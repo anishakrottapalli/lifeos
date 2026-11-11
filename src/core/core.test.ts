@@ -291,3 +291,12 @@ describe("turning notes into projects in place", () => {
     expect(store.index.partsOf(biz).subprojects.map((p) => p.title)).toEqual(["LifeOS"]);
   });
 });
+
+describe("folders", () => {
+  it("makes every app's folder when LifeOS opens", async () => {
+    const { mem } = await fresh();
+    for (const f of ["Content/Saved", "Life/To-Do & Routines", "Journal", "Projects", "Health/Medical"]) {
+      expect(mem.dirs.has(f)).toBe(true);
+    }
+  });
+});

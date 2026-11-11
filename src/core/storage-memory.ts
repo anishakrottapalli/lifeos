@@ -152,7 +152,10 @@ export class MemoryStorage implements Storage {
     for (const k of this.files.keys()) if (k.startsWith(path + "/")) return true;
     return false;
   }
-  async mkdir() {}
+  dirs = new Set<string>();
+  async mkdir(path: string) {
+    this.dirs.add(path);
+  }
   async importFile(fromAbs: string, to: string) {
     const t = this.external.get(fromAbs);
     if (t === undefined) throw new Error(`Missing: ${fromAbs}`);

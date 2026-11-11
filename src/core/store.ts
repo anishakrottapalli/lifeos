@@ -78,6 +78,8 @@ export class LifeStore {
     await this.storage.openRoot(root);
     this.cache.clear();
     await this.loadModules();
+    // Every app's folder exists from day one, so the whole structure shows in Finder.
+    for (const m of this.modules) await this.storage.mkdir(m.folder);
     await this.rescan();
     this.unwatch?.();
     this.unwatch = this.storage.onChange(() => this.scheduleRescan());
