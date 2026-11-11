@@ -61,7 +61,9 @@ Documents/LifeOS/
 
 ## Projects
 
-Every project is its own folder with an **Overview** (lean canvas), the Venture sections (**Market Research, Customer Development, UI/UX, Planning, Marketing, Operations, Funding, Financials**), a **Deck** page to attach the deck, and a **Documentation** page for the build log. **+ Today's entry** adds a dated entry at the top.
+Every project is its own folder with a **Board**: a freeform canvas, like a Figma board. Add text cards, drag in pictures, videos and files from Finder (or use **+ Pictures, videos & files**), and move everything wherever you like. Files you add are moved into the project's folder.
+
+When you make a project, say whether it's **Personal** (saved in `Projects/Personal`) or a **Venture** (saved in `Projects/Ventures`), then pick what to include. Every project gets the Board. The add-ons are the **Venture Ideation System** and a **build log**. A small project ("Create my handwriting font") can be just the Board. The Venture Ideation System adds an **Overview** (lean canvas), **Market Research, Customer Development, UI/UX, Planning, Marketing, Operations, Funding, Financials**, and a **Deck** page; the build log is a **Documentation** page. These pages sit on the Board as cards; click one to open it. **+ Add a section** on the Board adds any you skipped. **Details** holds the project's status, type and folder.
 
 - **Sub-projects** are project folders inside a project (e.g. My Business → LifeOS).
 - **Module pages** (inside a project's `Modules/` folder) are one page per part, like each LifeOS app, with its own documentation and build log. Module pages don't get the Venture sections. Each LifeOS app has a **Docs** button that opens its page.

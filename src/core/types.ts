@@ -43,6 +43,22 @@ export interface Link {
   kind: string;
 }
 
+/** One thing on a project's Board. Saved in the project note's `board:` list. */
+export interface BoardCard {
+  id: string;
+  /** text: a note card · file: a picture, video or other file in the project folder · page: a section/page of the project */
+  type: "text" | "file" | "page";
+  x: number;
+  y: number;
+  /** Width in px (height grows with the content). */
+  w?: number;
+  text?: string;
+  /** For file cards: the file name, in the project folder. */
+  file?: string;
+  /** For page cards: the page's id, or "overview" for the project's own Overview. */
+  page?: string;
+}
+
 export interface Item {
   id: string;
   /** False when the note file has no id yet (e.g. made in Finder). */
@@ -61,6 +77,8 @@ export interface Item {
   /** Attached file names, in the same folder as the note. */
   files: string[];
   body: string;
+  /** Projects only: the cards on the project's Board. */
+  board?: BoardCard[];
   created: string;
   updated: string;
 }

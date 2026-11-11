@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import type { Storage } from "./storage";
@@ -41,6 +41,10 @@ export class TauriStorage implements Storage {
   }
   importFile(fromAbs: string, to: string) {
     return invoke<void>("import_file", { fromAbs, to });
+  }
+  async fileUrl(path: string) {
+    const abs = await invoke<string>("full_path", { path });
+    return convertFileSrc(abs);
   }
   open(path: string) {
     return invoke<void>("open_in_os", { path });

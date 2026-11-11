@@ -231,3 +231,59 @@ ul.plain { margin: 6px 0 0; padding-left: 18px; line-height: 1.7; }
 .pill.no-margin { margin-left: 0; }
 .form-rows { display: flex; flex-direction: column; gap: 12px; margin: 14px 0; }
 .modal-actions .left { margin-right: auto; }
+
+/* ---------- project Board ---------- */
+.project-main.on-board { display: flex; flex-direction: column; height: 100vh; }
+.back-to-board { margin: 16px 0 0 32px; }
+.board-wrap { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.board-bar { display: flex; align-items: center; gap: 8px; padding: 14px 18px 8px; flex-wrap: wrap; }
+.board-bar .right { margin-left: auto; display: flex; gap: 8px; }
+.board-status { margin-left: 4px; }
+.board-hint { margin: 0 18px 8px; }
+.board {
+  flex: 1; min-height: 0; overflow: auto; border-top: 1px solid var(--line);
+  background-color: var(--panel);
+  background-image: radial-gradient(var(--line-strong) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+.board.dropping { outline: 3px dashed var(--muted); outline-offset: -6px; }
+.board-canvas { position: relative; }
+.board-empty { position: absolute; left: 40px; top: 40px; }
+.bcard {
+  position: absolute; background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--radius);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08); display: flex; flex-direction: column; overflow: hidden;
+  user-select: none; -webkit-user-select: none;
+}
+.bcard-page { padding: 10px 12px 14px; cursor: pointer; gap: 4px; }
+.bcard-page:hover { border-color: var(--accent); }
+.bcard-page-title { font-weight: 650; }
+.bcard-type-text { background: var(--note); border-color: var(--note-line); }
+.bcard-grip {
+  display: flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; cursor: grab;
+  border-bottom: 1px solid var(--line); font-size: 11px; color: var(--muted);
+}
+.bcard-grip:active { cursor: grabbing; }
+.bcard-grip-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bcard-x { border: none; background: none; padding: 0 6px; font-size: 15px; line-height: 1; color: var(--muted); cursor: pointer; }
+.bcard-x:hover { color: var(--danger); }
+.bcard-input {
+  border: none; outline: none; resize: none; background: transparent; padding: 8px 10px 14px; font: inherit;
+  color: inherit; width: 100%; box-sizing: border-box; overflow: hidden; user-select: text; -webkit-user-select: text;
+}
+.bcard-media { display: block; width: 100%; height: auto; }
+.bcard-file { display: flex; align-items: center; gap: 8px; border: none; background: none; padding: 12px; text-align: left; cursor: pointer; }
+.bcard-file-icon { font-size: 22px; }
+.bcard-resize {
+  position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize;
+  background: linear-gradient(135deg, transparent 50%, var(--line-strong) 50%);
+}
+
+/* New project: what it needs */
+.parts-list { display: flex; flex-direction: column; gap: 3px; margin-top: 8px; }
+.parts-list .check { display: flex; align-items: flex-start; gap: 8px; }
+.parts-list .check input { flex-shrink: 0; margin-top: 3px; }
+.parts-list .check.indent { padding-left: 22px; }
+.no-margin { margin: 0; }
+.choice-row { display: flex; gap: 8px; }
+.folder-row { display: flex; align-items: center; gap: 6px; }
+.folder-row input { flex: 1; }

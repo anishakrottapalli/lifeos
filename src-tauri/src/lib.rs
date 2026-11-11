@@ -167,6 +167,8 @@ fn open_root(app: AppHandle, state: State<AppState>, root: String) -> Result<(),
     let root = PathBuf::from(root);
     fs::create_dir_all(&root).map_err(err)?;
     *state.root.lock().unwrap() = Some(root.clone());
+    // Let the window show pictures and videos from this folder (and only this folder).
+    app.asset_protocol_scope().allow_directory(&root, true).map_err(err)?;
     start_watcher(&app, &state, &root)
 }
 
@@ -267,6 +269,14 @@ fn run_open(args: &[&str]) -> Result<(), String> {
     Ok(())
 }
 
+/// The full location of a file in the LifeOS folder, so the window can show it
+/// (pictures and videos on a project's Board). Still only inside the folder.
+#[tauri::command]
+fn full_path(state: State<AppState>, path: String) -> Result<String, String> {
+    let root = root_of(&state)?;
+    Ok(safe_join(&root, &path)?.to_string_lossy().to_string())
+}
+
 /// Open a file or folder with its default app.
 #[tauri::command]
 fn open_in_os(state: State<AppState>, path: String) -> Result<(), String> {
@@ -309,6 +319,7 @@ pub fn run() {
             path_exists,
             make_dir,
             import_file,
+            full_path,
             open_in_os,
             reveal_in_finder
         ])

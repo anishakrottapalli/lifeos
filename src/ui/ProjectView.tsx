@@ -5,9 +5,20 @@ import { displayValue, useStore, type Route } from "./hooks";
 import { ItemView } from "./ItemView";
 import { Modal } from "./Modal";
 import { NewProjectModal } from "./ProjectsView";
+import { Board } from "./Board";
 
-/** A project: section menu on the left, the chosen page on the right. */
-export function ProjectView({ project, selectedId, go }: { project: Item; selectedId: string; go: (r: Route) => void }) {
+/** A project: its Board (or the page you opened from it) on the right, modules and sub-projects on the left. */
+export function ProjectView({
+  project,
+  selectedId,
+  details = false,
+  go,
+}: {
+  project: Item;
+  selectedId: string;
+  details?: boolean;
+  go: (r: Route) => void;
+}) {
   const store = useStore();
   const parts = store.index.partsOf(project);
   const [adding, setAdding] = useState<"" | "module" | "sub">("");
@@ -18,7 +29,7 @@ export function ProjectView({ project, selectedId, go }: { project: Item; select
     cur = store.index.parentProject(cur);
   }
   const projectRel = dirName(project.path).slice(store.module("projects")!.folder.length + 1);
-  const missing = parts.sections.length < 9 || !parts.docs;
+  const onBoard = selectedId === project.id && !details;
 
   const navItem = (i: Item, label: string) => (
     <button key={i.id} className={`nav-item ${selectedId === i.id ? "active" : ""}`} onClick={() => go({ view: "item", id: i.id })}>
@@ -45,15 +56,15 @@ export function ProjectView({ project, selectedId, go }: { project: Item; select
         <div className="project-title">{project.title}</div>
         {project.fields["Status"] ? <span className="pill no-margin">{displayValue(project.fields["Status"])}</span> : null}
 
-        <div className="nav-group-title">Sections</div>
-        {navItem(project, "Overview")}
-        {parts.sections.map((s) => navItem(s, s.title))}
-        {parts.docs && navItem(parts.docs, "Documentation")}
-        {missing && (
-          <button className="nav-item muted" onClick={() => store.addMissingSections(project)}>
-            + Add missing sections
-          </button>
-        )}
+        <button className={`nav-item ${onBoard ? "active" : ""}`} onClick={() => go({ view: "item", id: project.id })}>
+          <span className="nav-label">🧩 Board</span>
+        </button>
+        <button
+          className={`nav-item ${selectedId === project.id && details ? "active" : ""}`}
+          onClick={() => go({ view: "item", id: project.id, page: "details" })}
+        >
+          <span className="nav-label">Details</span>
+        </button>
 
         <div className="nav-group-title">Modules</div>
         {parts.modules.map((m) => navItem(m, m.title))}
@@ -75,8 +86,17 @@ export function ProjectView({ project, selectedId, go }: { project: Item; select
         )}
       </aside>
 
-      <div className="project-main">
-        <ItemView key={selectedId} itemId={selectedId} go={go} embedded />
+      <div className={`project-main ${onBoard ? "on-board" : ""}`}>
+        {onBoard ? (
+          <Board project={project} go={go} />
+        ) : (
+          <>
+            <button className="link back-to-board small" onClick={() => go({ view: "item", id: project.id })}>
+              ← Board
+            </button>
+            <ItemView key={selectedId + (details ? ":d" : "")} itemId={selectedId} go={go} embedded />
+          </>
+        )}
       </div>
 
       {adding === "module" && (
@@ -94,8 +114,8 @@ export function ProjectView({ project, selectedId, go }: { project: Item; select
           heading={`New sub-project in ${project.title}`}
           fixedFolder={projectRel}
           close={() => setAdding("")}
-          create={async (title) => {
-            const p = await store.createProject(title, projectRel);
+          create={async (title, _folder, parts, fields) => {
+            const p = await store.createProject(title, projectRel, fields, parts);
             setAdding("");
             go({ view: "item", id: p.id });
           }}

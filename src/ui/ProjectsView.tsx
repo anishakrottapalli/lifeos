@@ -3,8 +3,9 @@ import type { Item } from "../core/types";
 import { displayValue, timeAgo, useStore, type Route } from "./hooks";
 import { Modal } from "./Modal";
 import { dirName } from "../core/paths";
+import { DOCS_KEY, PROJECT_GROUPS, VENTURE_PART_KEYS, type PartKey, type ProjectGroup } from "../core/projects";
 
-const SUGGESTED_FOLDERS = ["My Business", "My Business/Content", "My Business/Software", "My Business/Services", "Personal"];
+const SUGGESTED_SUBFOLDERS: Record<ProjectGroup, string[]> = { Personal: [], Venture: ["Content", "Software", "Services"] };
 
 export function ProjectsView({ go }: { go: (r: Route) => void }) {
   const store = useStore();
@@ -36,7 +37,8 @@ export function ProjectsView({ go }: { go: (r: Route) => void }) {
           </div>
         </div>
         <p className="muted">
-          Each project is a folder with its Overview, Venture sections, a Deck and a Documentation page (build log).
+          Each project is a folder with a Board for text, documents, videos and photos. Personal projects go in
+          Personal, ventures in Ventures. Add the Venture Ideation System or a build log when a project needs them.
           Projects inside another project's folder show up as its sub-projects. <span className="path">LifeOS/{mod.folder}</span>
         </p>
       </header>
@@ -109,9 +111,9 @@ export function ProjectsView({ go }: { go: (r: Route) => void }) {
       {creating && (
         <NewProjectModal
           close={() => setCreating(false)}
-          folders={[...new Set([...SUGGESTED_FOLDERS, ...store.index.subfolders("projects")])].sort()}
-          create={async (title, folder) => {
-            const p = await store.createProject(title, folder);
+          folders={store.index.subfolders("projects")}
+          create={async (title, folder, parts, fields) => {
+            const p = await store.createProject(title, folder, fields, parts);
             setCreating(false);
             go({ view: "item", id: p.id });
           }}
@@ -129,40 +131,88 @@ export function NewProjectModal({
   heading = "New project",
 }: {
   close: () => void;
-  create: (title: string, folder: string) => void;
+  create: (title: string, folder: string, parts: PartKey[], fields: Record<string, unknown>) => void;
   folders?: string[];
   fixedFolder?: string;
   heading?: string;
 }) {
   const [title, setTitle] = useState("");
-  const [folder, setFolder] = useState(fixedFolder ?? "");
+  const [group, setGroup] = useState<ProjectGroup>("Personal");
+  const [sub, setSub] = useState("");
+  const [venture, setVenture] = useState(false);
+  const [log, setLog] = useState(false);
+  const top = PROJECT_GROUPS[group];
+  const subOptions = [
+    ...new Set([
+      ...SUGGESTED_SUBFOLDERS[group],
+      ...(folders ?? []).filter((f) => f.startsWith(top + "/")).map((f) => f.slice(top.length + 1)),
+    ]),
+  ].sort();
+  const isSub = fixedFolder !== undefined;
+
   return (
     <Modal close={close}>
       <h2>{heading}</h2>
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (title.trim()) create(title.trim(), folder);
+          if (!title.trim()) return;
+          const parts = [...(venture ? VENTURE_PART_KEYS : []), ...(log ? [DOCS_KEY] : [])];
+          const folder = isSub ? fixedFolder : sub.trim() ? `${top}/${sub.trim()}` : top;
+          create(title.trim(), folder, parts, isSub ? {} : { Type: group });
         }}
       >
         <div className="form-rows">
           <label className="field">
             <span className="field-label">Name</span>
-            <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. LifeOS" />
+            <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Create my handwriting font" />
           </label>
-          {fixedFolder === undefined && (
+          {!isSub && (
+            <div className="field">
+              <span className="field-label">Is it personal or a venture?</span>
+              <div className="choice-row">
+                {(Object.keys(PROJECT_GROUPS) as ProjectGroup[]).map((g) => (
+                  <button key={g} type="button" className={group === g ? "primary" : ""} onClick={() => setGroup(g)}>
+                    {g}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {!isSub && (
             <label className="field">
               <span className="field-label">Inside folder (optional)</span>
-              <input list="project-folders" value={folder} onChange={(e) => setFolder(e.target.value)} placeholder="e.g. My Business/Software" />
-              <datalist id="project-folders">
-                {(folders ?? []).map((f) => (
+              <div className="folder-row">
+                <span className="path">{top}/</span>
+                <input list="project-subfolders" value={sub} onChange={(e) => setSub(e.target.value)} placeholder={group === "Venture" ? "e.g. Software" : "leave empty"} />
+              </div>
+              <datalist id="project-subfolders">
+                {subOptions.map((f) => (
                   <option key={f} value={f} />
                 ))}
               </datalist>
             </label>
           )}
         </div>
-        <p className="muted small">It gets its own folder with Overview, the Venture sections, a Deck and Documentation.</p>
+        <div className="field">
+          <span className="field-label">What to include</span>
+          <div className="parts-list">
+            <label className="check">
+              <input type="checkbox" checked disabled />
+              Board: text, documents, videos and photos
+            </label>
+            <label className="check">
+              <input type="checkbox" checked={venture} onChange={() => setVenture(!venture)} />
+              The Venture Ideation System (Overview, Market Research, Customer Development, UI/UX, Planning, Marketing,
+              Operations, Funding, Financials and Deck)
+            </label>
+            <label className="check">
+              <input type="checkbox" checked={log} onChange={() => setLog(!log)} />
+              Build log
+            </label>
+          </div>
+          <p className="muted small no-margin">You can add these later from the project's Board.</p>
+        </div>
         <div className="modal-actions">
           <button type="button" onClick={close}>
             Cancel

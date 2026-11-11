@@ -225,6 +225,7 @@ export class LifeIndex {
         item.tags.join(" ").toLowerCase(),
         Object.values(item.fields).map((v) => String(v ?? "")).join(" ").toLowerCase(),
         item.folder.toLowerCase(),
+        (item.board ?? []).map((c) => c.text ?? "").join(" ").toLowerCase(),
       ].join(" \n ");
       if (!words.every((w) => hay.includes(w))) continue;
       let score = 0;

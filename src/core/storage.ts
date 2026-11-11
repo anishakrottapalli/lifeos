@@ -20,6 +20,8 @@ export interface Storage {
   mkdir(path: string): Promise<void>;
   /** Move a file from anywhere on the Mac into the LifeOS folder. */
   importFile(fromAbs: string, to: string): Promise<void>;
+  /** A web address the window can show a picture or video from (null if it can't). */
+  fileUrl(path: string): Promise<string | null>;
   open(path: string): Promise<void>;
   reveal(path: string): Promise<void>;
   pickFolder(): Promise<string | null>;

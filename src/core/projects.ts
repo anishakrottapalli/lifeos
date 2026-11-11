@@ -215,3 +215,39 @@ export function moduleTemplate(date: string): string {
 }
 
 export const MODULES_FOLDER = "Modules";
+
+// ---------- choosing a project's parts ----------
+// When a project is created, you pick which parts it gets. Every project has a
+// Board; the rest (Overview, the Venture sections, Deck, Documentation) are
+// optional and can be added later from the Board.
+
+/** "overview", "docs", or a section's file name (e.g. "02 Market Research"). */
+export type PartKey = string;
+
+export const OVERVIEW_KEY = "overview";
+export const DOCS_KEY = "docs";
+
+export interface PartDef {
+  key: PartKey;
+  label: string;
+}
+
+export const ALL_PARTS: PartDef[] = [
+  { key: OVERVIEW_KEY, label: "Overview (lean canvas)" },
+  ...SECTIONS.map((s) => ({ key: s.file, label: s.title })),
+  { key: DOCS_KEY, label: "Documentation (build log)" },
+];
+
+export const ALL_PART_KEYS: PartKey[] = ALL_PARTS.map((p) => p.key);
+
+/** The Venture Ideation System: the Overview, the Venture sections and the Deck. */
+export const VENTURE_PART_KEYS: PartKey[] = [OVERVIEW_KEY, ...SECTIONS.map((s) => s.file)];
+
+/** Top folders inside Projects for each kind of project. */
+export const PROJECT_GROUPS = { Personal: "Personal", Venture: "Ventures" } as const;
+export type ProjectGroup = keyof typeof PROJECT_GROUPS;
+
+/** True when a project's Overview text has been started (so it shows on the Board). */
+export function hasOverview(body: string): boolean {
+  return body.trim().length > 0;
+}
