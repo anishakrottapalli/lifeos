@@ -385,7 +385,7 @@ describe("older projects", () => {
     await store.rescan();
     const old = store.index.items.get("abc")!;
     expect(old.board?.[0].text).toBe("hi");
-    await store.saveItem(old);
+    await store.openRoot(""); // opening LifeOS upgrades it right away
     expect(mem.files.has("Projects/Personal/Old/old.lifeos")).toBe(true);
     expect(mem.files.has("Projects/Personal/Old/Old.md")).toBe(false);
     expect(mem.files.has("Projects/Personal/Old/projectboard.lifeos")).toBe(false);

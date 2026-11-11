@@ -95,10 +95,34 @@ export class LifeStore {
     // Every app's folder exists from day one, so the whole structure shows in Finder.
     for (const m of this.modules) await this.storage.mkdir(m.folder);
     await this.rescan();
+    await this.upgradeOldProjects();
     this.unwatch?.();
     this.unwatch = this.storage.onChange(() => this.scheduleRescan());
     this.ready = true;
     this.bump();
+  }
+
+  /** Projects made before the .lifeos file existed become one "<name>.lifeos" file as soon as LifeOS opens. */
+  private async upgradeOldProjects() {
+    for (const p of this.index.projects()) {
+      if (p.path.endsWith(".lifeos")) continue;
+      try {
+        await this.run(async () => {
+          const fresh = this.index.items.get(p.id);
+          if (!fresh || fresh.path.endsWith(".lifeos")) return;
+          const dir = dirName(fresh.path);
+          const newPath = join(dir, uniqueName(stripExt(projectFile(fileName(dir))), ".lifeos", this.taken(dir, fresh.path)));
+          await this.storage.move(fresh.path, newPath);
+          this.cache.delete(fresh.path);
+          await this.trashOldBoard(dir);
+          // Keep the Board that was in projectboard.lifeos by writing it into the new file.
+          await this.writeNote(newPath, serializeItem({ ...fresh, path: newPath }, this.projectsModule()));
+          await this.rescanNow();
+        });
+      } catch {
+        /* leave this one as it is; it will upgrade the next time it is saved */
+      }
+    }
   }
 
   async changeRoot(root: string) {
