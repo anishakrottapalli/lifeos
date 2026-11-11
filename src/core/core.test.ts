@@ -326,15 +326,16 @@ describe("choosing a project's parts and its Board", () => {
     expect(p.body).toContain("## Lean canvas");
   });
 
-  it("saves Board cards in the project note and reads them back", async () => {
+  it("saves Board cards in projectboard.lifeos and reads them back", async () => {
     const { mem, store } = await fresh();
     const p = await store.createProject("Font", "", {}, []);
     await store.saveBoard(p, [
       { id: "t1", type: "text", text: "Line one\nLine two: with a colon", x: 10, y: 20, w: 300 },
       { id: "p1", type: "page", page: "overview", x: 5, y: 6 },
     ]);
-    const text = mem.files.get(p.path)!.text;
-    expect(text).toContain("board:");
+    expect(mem.files.get(p.path)!.text).not.toContain("board:");
+    const dir = p.path.slice(0, p.path.lastIndexOf("/"));
+    expect(mem.files.get(`${dir}/projectboard.lifeos`)!.text).toContain("Line one");
     const again = store.index.items.get(p.id)!;
     expect(again.board).toEqual([
       { id: "t1", type: "text", text: "Line one\nLine two: with a colon", x: 10, y: 20, w: 300 },

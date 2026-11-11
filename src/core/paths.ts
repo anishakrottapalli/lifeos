@@ -65,6 +65,13 @@ export function uniqueName(base: string, ext: string, taken: (name: string) => b
   return name;
 }
 
+/** The file that holds a project's Board layout, next to the project's note. */
+export const BOARD_FILE = "projectboard.lifeos";
+
+export function isBoardFile(path: string): boolean {
+  return path === BOARD_FILE || path.endsWith("/" + BOARD_FILE);
+}
+
 export function isNote(path: string): boolean {
   return path.toLowerCase().endsWith(".md");
 }

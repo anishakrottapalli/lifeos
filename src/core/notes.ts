@@ -61,6 +61,20 @@ function asNumber(v: unknown, fallback = 0): number {
   return Number.isFinite(n) ? n : fallback;
 }
 
+/** Read a projectboard.lifeos file (plain JSON: { "board": [ …cards ] }). */
+export function parseBoardFile(text: string): BoardCard[] | undefined {
+  try {
+    const data = JSON.parse(text);
+    return asBoard(Array.isArray(data) ? data : data?.board);
+  } catch {
+    return undefined;
+  }
+}
+
+export function serializeBoard(board: BoardCard[]): string {
+  return JSON.stringify({ board: board.map((c) => ({ ...c })) }, null, 2) + "\n";
+}
+
 function asBoard(v: unknown): BoardCard[] | undefined {
   if (!Array.isArray(v)) return undefined;
   const out: BoardCard[] = [];
@@ -128,7 +142,6 @@ export function serializeItem(item: Item, mod?: ModuleDef): string {
   if (item.tags.length) meta.tags = item.tags;
   if (item.links.length) meta.links = item.links.map((l) => ({ to: l.to, kind: l.kind }));
   if (item.files.length) meta.files = item.files;
-  if (item.board?.length) meta.board = item.board.map((c) => ({ ...c }));
   const ordered = mod ? mod.fields.map((f) => f.key) : [];
   const keys = [...ordered, ...Object.keys(item.fields).filter((k) => !ordered.includes(k))];
   for (const k of keys) {

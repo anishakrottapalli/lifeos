@@ -2,8 +2,8 @@
 // It is never the source of truth; the files are.
 
 import type { Entry, Item, ModuleDef } from "./types";
-import { dirName, fileName, isNote, join } from "./paths";
-import { parseItem } from "./notes";
+import { BOARD_FILE, dirName, fileName, isBoardFile, isNote, join } from "./paths";
+import { parseBoardFile, parseItem } from "./notes";
 
 export interface Backlink {
   item: Item;
@@ -61,7 +61,13 @@ export class LifeIndex {
     this.buildBacklinks();
     this.projectByDir.clear();
     for (const i of this.items.values()) {
-      if (i.kind === "project") this.projectByDir.set(dirName(i.path), i);
+      if (i.kind === "project") {
+        this.projectByDir.set(dirName(i.path), i);
+        // The Board layout lives in projectboard.lifeos next to the project note.
+        const text = noteText.get(join(dirName(i.path), BOARD_FILE));
+        const board = text === undefined ? undefined : parseBoardFile(text);
+        if (board) i.board = board;
+      }
     }
   }
 
@@ -206,6 +212,7 @@ export class LifeIndex {
     return this.entries.filter(
       (e) =>
         !isNote(e.path) &&
+        !isBoardFile(e.path) &&
         moduleForPath(e.path, this.modules)?.id === moduleId &&
         !claimed.has(e.path) &&
         !fileName(e.path).endsWith(".lifeos-tmp"),
