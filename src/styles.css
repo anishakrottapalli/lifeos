@@ -290,3 +290,4 @@ ul.plain { margin: 6px 0 0; padding-left: 18px; line-height: 1.7; }
 .choice-row { display: flex; gap: 8px; }
 .folder-row { display: flex; align-items: center; gap: 6px; }
 .folder-row input { flex: 1; }
+.folder-path { margin-left: 0; }

@@ -4,6 +4,7 @@ import { dirName, join, today } from "../core/paths";
 import { displayValue, timeAgo, useStore, type Route } from "./hooks";
 import { LinkPicker } from "./LinkPicker";
 import { renderMarkdown } from "./markdown";
+import { hasOverview } from "../core/projects";
 
 const SAVE_DELAY = 700;
 
@@ -24,7 +25,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
   const dirtyRef = useRef(false);
   dirtyRef.current = dirty;
   // A project's "Folder" box is the folder it sits in (e.g. "My Business/Software").
-  const [parentFolder, setParentFolder] = useState(() => (stored?.kind === "project" ? dirName(stored.folder) : ""));
+  const [parentFolder] = useState(() => (stored?.kind === "project" ? dirName(stored.folder) : ""));
   const parentRef = useRef(parentFolder);
   parentRef.current = parentFolder;
 
@@ -125,20 +126,10 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
 
       <div className="meta-row">
         {isProject ? (
-          <label className="meta">
-            <span className="muted small">Inside folder</span>
-            <input
-              list="folder-options"
-              value={parentFolder}
-              placeholder="(top of Projects)"
-              onChange={(e) => {
-                setParentFolder(e.target.value);
-                setDirty(true);
-                setStatus("Editing…");
-              }}
-              onBlur={() => dirtyRef.current && persist(latest.current!, true)}
-            />
-          </label>
+          <div className="meta">
+            <span className="muted small">Folder</span>
+            <span className="path folder-path">LifeOS/{dir}</span>
+          </div>
         ) : draft.kind ? (
           <span />
         ) : (
@@ -158,13 +149,6 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
           </datalist>
         </label>
         )}
-        {isProject && (
-          <datalist id="folder-options">
-            {folders.map((f) => (
-              <option key={f} value={f} />
-            ))}
-          </datalist>
-        )}
         <div className="actions">
           {draft.module === "projects" && !draft.kind && (
             <button
@@ -178,8 +162,8 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
               Turn into project
             </button>
           )}
-          <button onClick={() => store.storage.reveal(draft.path)}>Show in Finder</button>
-          <button onClick={() => store.storage.open(draft.path)}>Open note file</button>
+          <button onClick={() => store.storage.reveal(isProject ? dir : draft.path)}>Show in Finder</button>
+          {!isProject && <button onClick={() => store.storage.open(draft.path)}>Open note file</button>}
           {!fixedName(draft) && (
             <button
               className="danger"
@@ -241,8 +225,13 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
         </section>
       )}
 
-      <TagInput tags={draft.tags} all={store.index.allTags()} onChange={(tags) => change({ tags }, { now: true })} />
+      {isProject && (
+        <p className="muted small">Last updated {draft.updated.replace("T", " ").slice(0, 16)}</p>
+      )}
 
+      {!isProject && <TagInput tags={draft.tags} all={store.index.allTags()} onChange={(tags) => change({ tags }, { now: true })} />}
+
+      {(!isProject || hasOverview(draft.body)) && (
       <section className="body-section">
         <div className="section-head">
           <h3>{isLog ? "Notes and build log" : "Notes"}</h3>
@@ -275,7 +264,9 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
           />
         )}
       </section>
+      )}
 
+      {!isProject && (
       <section>
         <div className="section-head">
           <h3>Files</h3>
@@ -316,6 +307,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
           </ul>
         )}
       </section>
+      )}
 
       <section>
         <div className="section-head">
@@ -376,7 +368,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
         )}
       </section>
 
-      {otherKeys.length > 0 && (
+      {!isProject && otherKeys.length > 0 && (
         <section>
           <h3>Other fields</h3>
           <p className="muted small">Saved in the file but not part of this app's field list.</p>
