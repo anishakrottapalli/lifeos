@@ -272,6 +272,9 @@ ul.plain { margin: 6px 0 0; padding-left: 18px; line-height: 1.7; }
 }
 .bcard-media { display: block; width: 100%; height: auto; }
 .bcard-file { display: flex; align-items: center; gap: 8px; border: none; background: none; padding: 12px; text-align: left; cursor: pointer; }
+.bcard-md { display: block; width: 100%; }
+.bcard-md-text { display: block; line-height: 1.5; white-space: normal; }
+.md-reader { min-width: 0; }
 .bcard-file-icon { font-size: 22px; }
 .bcard-resize {
   position: absolute; right: 0; bottom: 0; width: 14px; height: 14px; cursor: nwse-resize;
@@ -287,3 +290,4 @@ ul.plain { margin: 6px 0 0; padding-left: 18px; line-height: 1.7; }
 .choice-row { display: flex; gap: 8px; }
 .folder-row { display: flex; align-items: center; gap: 6px; }
 .folder-row input { flex: 1; }
+.folder-path { margin-left: 0; }

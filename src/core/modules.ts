@@ -58,11 +58,8 @@ export const DEFAULT_MODULES: ModuleDef[] = [
     storage: "mac",
     linkKinds: ["part of", "goal", "related"],
     fields: [
-      f("Type", "select", ["Personal", "Venture", "Design project", "Personal build", "Other"]),
+      f("Type", "select", ["Personal", "Venture"]),
       f("Status", "select", ["Idea", "Active", "Paused", "Done"]),
-      f("Division", "select", ["Content", "Software", "Services"]),
-      f("Start", "date"),
-      f("Target", "date"),
     ],
   },
   {

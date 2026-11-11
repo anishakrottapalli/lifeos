@@ -6,7 +6,7 @@ import type { BoardCard, Entry, FieldDef, Item, ModuleDef } from "./types";
 import type { Storage } from "./storage";
 import { DEFAULT_MODULES, applyOverrides, type ModuleOverrides } from "./modules";
 import { LifeIndex } from "./index";
-import { serializeItem } from "./notes";
+import { serializeBoard, serializeItem } from "./notes";
 import { newId } from "./ids";
 import {
   ALL_PART_KEYS,
@@ -26,6 +26,8 @@ import {
   extName,
   fileName,
   isNote,
+  isBoardFile,
+  BOARD_FILE,
   join,
   nowStamp,
   safeFolder,
@@ -147,7 +149,7 @@ export class LifeStore {
 
   private async rescanNow() {
     const entries: Entry[] = await this.storage.scan();
-    const notes = entries.filter((e) => isNote(e.path));
+    const notes = entries.filter((e) => isNote(e.path) || isBoardFile(e.path));
     const stale = notes.filter((e) => this.cache.get(e.path)?.mtime !== e.mtime);
     if (stale.length) {
       const texts = await this.storage.readMany(stale.map((e) => e.path));
@@ -253,6 +255,7 @@ export class LifeStore {
       }
     }
     await this.writeNote(item.path, serializeItem(item, mod));
+    if (item.kind === "project" && item.board) await this.writeBoard(item);
     await this.rescanNow();
     return this.index.items.get(item.id) ?? item;
   }
@@ -475,6 +478,19 @@ export class LifeStore {
     });
   }
 
+  /** Make a new, empty Markdown page in the project folder (named what you typed) and put it on the Board. */
+  async createBoardMarkdown(project: Item, title: string, at: { x: number; y: number }): Promise<Item> {
+    return this.run(async () => {
+      const fresh = this.index.items.get(project.id) ?? project;
+      const dir = dirName(fresh.path);
+      const name = uniqueName(safeName(title.trim().replace(/\.(md|markdown)$/i, "")) || "Untitled", ".md", this.taken(dir));
+      await this.storage.write(join(dir, name), `# ${stripExt(name)}\n\n`);
+      this.index.entries.push({ path: join(dir, name), mtime: Date.now(), size: 0 });
+      const board = [...(fresh.board ?? []), { id: newId(), type: "file" as const, file: name, x: Math.round(at.x), y: Math.round(at.y), w: 300 }];
+      return this.saveNow({ ...fresh, files: [...fresh.files, name], board }, false);
+    });
+  }
+
   /** Take a card off the Board. A file card's file goes to LifeOS/.trash (recoverable). */
   async removeBoardCard(project: Item, card: BoardCard): Promise<Item> {
     return this.run(async () => {
@@ -534,6 +550,7 @@ export class LifeStore {
       const rel = newDir.slice(mod.folder.length).replace(/^\//, "");
       const saved: Item = { ...project, title: title.trim() || name, path, folder: rel, updated: nowStamp() };
       await this.writeNote(path, serializeItem(saved, mod));
+      if (saved.board) await this.writeBoard(saved);
       await this.rescanNow();
       return this.index.items.get(project.id) ?? saved;
     });
@@ -578,6 +595,13 @@ export class LifeStore {
   }
 
   /** Write a note and make sure the next scan rereads it. */
+  /** Save a project's Board layout in projectboard.lifeos (only when there is something to keep). */
+  private async writeBoard(project: Item) {
+    const path = join(dirName(project.path), BOARD_FILE);
+    if (!project.board?.length && !(await this.storage.exists(path))) return;
+    await this.writeNote(path, serializeBoard(project.board ?? []));
+  }
+
   private async writeNote(path: string, text: string) {
     await this.storage.write(path, text);
     this.cache.delete(path);

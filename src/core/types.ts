@@ -43,7 +43,7 @@ export interface Link {
   kind: string;
 }
 
-/** One thing on a project's Board. Saved in the project note's `board:` list. */
+/** One thing on a project's Board. Saved in the project folder's `projectboard.lifeos` file. */
 export interface BoardCard {
   id: string;
   /** text: a note card · file: a picture, video or other file in the project folder · page: a section/page of the project */
