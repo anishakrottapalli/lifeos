@@ -3,6 +3,7 @@ import { useStore, type Route } from "./hooks";
 import { Sidebar } from "./Sidebar";
 import { Home } from "./Home";
 import { ModuleView } from "./ModuleView";
+import { BlankApp, SHOW_APP_LISTS } from "./BlankApp";
 import { ItemView } from "./ItemView";
 import { SettingsView } from "./SettingsView";
 import { SearchPalette } from "./SearchPalette";
@@ -56,7 +57,7 @@ export function App() {
         )}
         {route.view === "home" && <Home go={go} />}
         {route.view === "module" &&
-          (route.id === "projects" ? <ProjectsView go={go} /> : <ModuleView key={route.id} moduleId={route.id} go={go} />)}
+          (route.id === "projects" ? <ProjectsView go={go} /> : (SHOW_APP_LISTS ? <ModuleView key={route.id} moduleId={route.id} go={go} /> : <BlankApp key={route.id} moduleId={route.id} />))}
         {route.view === "item" && renderItem(route.id, route.page === "details")}
         {route.view === "settings" && <SettingsView />}
       </main>
