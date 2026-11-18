@@ -156,6 +156,11 @@ export class MemoryStorage implements Storage {
   async mkdir(path: string) {
     this.dirs.add(path);
   }
+  async writeBytes(path: string, data: Uint8Array) {
+    if (this.files.has(path)) throw new Error(`Already exists: ${path}`);
+    this.files.set(path, { text: Array.from(data, (b) => String.fromCharCode(b)).join(""), mtime: Date.now() });
+    this.changed();
+  }
   async importFile(fromAbs: string, to: string) {
     const t = this.external.get(fromAbs);
     if (t === undefined) throw new Error(`Missing: ${fromAbs}`);

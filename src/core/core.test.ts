@@ -420,3 +420,15 @@ describe("journal days", () => {
     expect(html.indexOf("<audio")).toBeLessThan(html.indexOf("Evening"));
   });
 });
+
+describe("pasted journal pictures", () => {
+  it("saves a pasted picture as its own file in the day's folder", async () => {
+    const { mem, store } = await fresh();
+    const day = await store.openJournalDay("2026-11-11");
+    const name = await store.addJournalPicture(day, new Uint8Array([137, 80, 78, 71]), ".png");
+    expect(name).toMatch(/^pasted \d{4}-\d{2}-\d{2} \d{6}\.png$/);
+    expect(mem.files.has(`Journal/2026-11-11/${name}`)).toBe(true);
+    const again = await store.addJournalPicture(day, new Uint8Array([1]), ".png");
+    expect(again).not.toBe(name); // never overwrites
+  });
+});

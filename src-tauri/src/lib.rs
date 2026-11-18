@@ -258,6 +258,56 @@ fn import_file(state: State<AppState>, from_abs: String, to: String) -> Result<(
     move_file(Path::new(&from_abs), &b)
 }
 
+/// Undo %XX escapes (the path arrives in a header, so it is sent escaped).
+fn percent_decode(s: &str) -> String {
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let Ok(v) = u8::from_str_radix(&s[i + 1..i + 3], 16) {
+                out.push(v);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).to_string()
+}
+
+/// Save bytes as a brand-new file inside the LifeOS folder. Never overwrites.
+fn write_new(root: &Path, rel: &str, data: &[u8]) -> Result<(), String> {
+    let p = safe_join(root, rel)?;
+    if p.exists() {
+        return Err(format!("Already exists: {rel}"));
+    }
+    if let Some(parent) = p.parent() {
+        fs::create_dir_all(parent).map_err(err)?;
+    }
+    let tmp = p.with_extension("lifeos-tmp");
+    fs::write(&tmp, data).map_err(err)?;
+    fs::rename(&tmp, &p).map_err(err)
+}
+
+/// Save a pasted picture (or any bytes) as a new file. The bytes are the request body and the
+/// path (relative to the LifeOS folder) is in the "x-path" header, percent-encoded.
+#[tauri::command]
+fn write_bytes(state: State<AppState>, request: tauri::ipc::Request<'_>) -> Result<(), String> {
+    let root = root_of(&state)?;
+    let tauri::ipc::InvokeBody::Raw(data) = request.body() else {
+        return Err("Expected the file's bytes.".to_string());
+    };
+    let rel = request
+        .headers()
+        .get("x-path")
+        .and_then(|v| v.to_str().ok())
+        .map(percent_decode)
+        .ok_or("Missing path.")?;
+    write_new(&root, &rel, data)
+}
+
 fn run_open(args: &[&str]) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     let cmd = "open";
@@ -319,6 +369,7 @@ pub fn run() {
             path_exists,
             make_dir,
             import_file,
+            write_bytes,
             full_path,
             open_in_os,
             reveal_in_finder
@@ -330,6 +381,25 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn percent_decode_works() {
+        assert_eq!(percent_decode("Journal/2026-11-11/pasted%20picture.png"), "Journal/2026-11-11/pasted picture.png");
+        assert_eq!(percent_decode("100%"), "100%");
+        assert_eq!(percent_decode("a%2"), "a%2");
+    }
+
+    #[test]
+    fn write_new_never_overwrites_or_escapes() {
+        let dir = std::env::temp_dir().join(format!("lifeos-wn-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        write_new(&dir, "Journal/2026-11-11/p.png", b"abc").unwrap();
+        assert_eq!(fs::read(dir.join("Journal/2026-11-11/p.png")).unwrap(), b"abc");
+        assert!(write_new(&dir, "Journal/2026-11-11/p.png", b"zzz").is_err());
+        assert!(write_new(&dir, "../outside.png", b"x").is_err());
+        fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn safe_join_blocks_escapes() {
