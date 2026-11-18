@@ -548,6 +548,21 @@ export class LifeStore {
     });
   }
 
+  /** Save a pasted picture as its own file in the day's folder and return its name. */
+  async addJournalPicture(day: Item, data: Uint8Array, ext: string): Promise<string> {
+    return this.run(async () => {
+      const dir = dirName(day.path);
+      const d = new Date();
+      const p = (n: number) => String(n).padStart(2, "0");
+      const base = `pasted ${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+      const name = uniqueName(base, ext, this.taken(dir));
+      await this.storage.writeBytes(join(dir, name), data);
+      this.index.entries.push({ path: join(dir, name), mtime: Date.now(), size: data.length });
+      await this.rescanNow();
+      return name;
+    });
+  }
+
   /** Move one file from a day to LifeOS/.trash. */
   async removeJournalFile(day: Item, name: string): Promise<void> {
     return this.run(async () => {

@@ -20,6 +20,8 @@ export interface Storage {
   mkdir(path: string): Promise<void>;
   /** Move a file from anywhere on the Mac into the LifeOS folder. */
   importFile(fromAbs: string, to: string): Promise<void>;
+  /** Save bytes (e.g. a pasted picture) as a brand-new file. Never overwrites. */
+  writeBytes(path: string, data: Uint8Array): Promise<void>;
   /** A web address the window can show a picture or video from (null if it can't). */
   fileUrl(path: string): Promise<string | null>;
   open(path: string): Promise<void>;

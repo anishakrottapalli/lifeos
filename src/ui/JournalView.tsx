@@ -13,6 +13,7 @@ import { Modal } from "./Modal";
 const IMAGE = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp", ".heic"];
 const VIDEO = [".mp4", ".mov", ".m4v", ".webm"];
 const AUDIO = [".m4a", ".mp3", ".wav", ".aac", ".aiff", ".caf", ".ogg", ".flac"];
+const PASTE_EXT: Record<string, string> = { "image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif", "image/webp": ".webp", "image/heic": ".heic", "image/tiff": ".tiff" };
 const DAY_PATH = /^Journal\/\d{4}-\d{2}-\d{2}\/[^/]+\.md$/;
 
 type Kind = "image" | "video" | "audio" | "other";
@@ -340,7 +341,7 @@ export function JournalDay({ itemId, go }: { itemId: string; go: (r: Route) => v
             className="body-input"
             value={text}
             autoFocus
-            placeholder="Write about your day. Use + Add pictures, videos & audio to put them exactly where the cursor is."
+            placeholder="Write about your day. Paste a copied picture, or use + Add pictures, videos & audio, to put it exactly where the cursor is."
             onChange={(e) => {
               setText(e.target.value);
               dirty.current = true;
@@ -349,6 +350,24 @@ export function JournalDay({ itemId, go }: { itemId: string; go: (r: Route) => v
               timer.current = setTimeout(() => saveRef.current(), 700);
             }}
             onBlur={() => void save()}
+            onPaste={async (e) => {
+              // A copied picture becomes its own file, placed at the cursor. Copied words paste as normal.
+              const pics = [...e.clipboardData.files].filter((f) => f.type.startsWith("image/"));
+              if (!pics.length || e.clipboardData.getData("text/plain").trim()) return;
+              e.preventDefault();
+              setStatus("Saving picture…");
+              try {
+                const names: string[] = [];
+                for (const f of pics) {
+                  const ext = PASTE_EXT[f.type] ?? ".png";
+                  names.push(await store.addJournalPicture(store.index.items.get(itemId) ?? day, new Uint8Array(await f.arrayBuffer()), ext));
+                }
+                await place(names);
+                setStatus(`Saved ${names.length === 1 ? "the picture" : `${names.length} pictures`} in the day's folder`);
+              } catch (err) {
+                setStatus(`Couldn't save the picture: ${err}`);
+              }
+            }}
           />
         ) : (
           <div

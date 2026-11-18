@@ -39,6 +39,9 @@ export class TauriStorage implements Storage {
   mkdir(path: string) {
     return invoke<void>("make_dir", { path });
   }
+  writeBytes(path: string, data: Uint8Array) {
+    return invoke<void>("write_bytes", data, { headers: { "x-path": encodeURIComponent(path) } });
+  }
   importFile(fromAbs: string, to: string) {
     return invoke<void>("import_file", { fromAbs, to });
   }
