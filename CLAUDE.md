@@ -26,7 +26,7 @@ Each project is a folder: `<Name>/<name>.lifeos` is the project (`kind: project`
 
 ## Journal app
 
-`Journal/<date>/<date>.md` is a day's writing (`openJournalDay`); pictures and audio recordings are separate files in the same folder, kept under their own names. A line in the text like `![](photo.jpg)` (or an audio file) shows that file at that spot; `renderMarkdown(text, resolver)` draws it. Files in the folder that the text doesn't mention are listed under the text, so files added in Finder show up. Screens: `src/ui/JournalView.tsx`. Other apps are blank pages for now (`src/ui/BlankApp.tsx`).
+`Journal/<date>/<date>.md` is a day's writing (`openJournalDay`); pictures, videos and audio recordings are separate files in the same folder, kept under their own names. A line in the text like `![](photo.jpg)` (or a video or audio file) shows that file at that spot; `renderMarkdown(text, resolver)` draws it. Files in the folder that the text doesn't mention are listed under the text, so files added in Finder show up. Screens: `src/ui/JournalView.tsx`. Other apps are blank pages for now (`src/ui/BlankApp.tsx`).
 
 ## Older Mac
 

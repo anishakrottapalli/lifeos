@@ -412,8 +412,9 @@ describe("journal days", () => {
 
   it("a line like ![](photo.jpg) shows that file inside the text", async () => {
     const { renderMarkdown } = await import("../ui/markdown");
-    const html = renderMarkdown("Morning.\n\n![](my%20photo.jpg)\n\n![](voice.m4a)\n\nEvening.", (n) => `file://${n}`);
+    const html = renderMarkdown("Morning.\n\n![](my%20photo.jpg)\n\n![](clip.mov)\n\n![](voice.m4a)\n\nEvening.", (n) => `file://${n}`);
     expect(html).toContain('<img class="md-img" src="file://my photo.jpg"');
+    expect(html).toContain('<video class="md-video" controls');
     expect(html).toContain('<audio controls');
     expect(html.indexOf("Morning")).toBeLessThan(html.indexOf("<img"));
     expect(html.indexOf("<audio")).toBeLessThan(html.indexOf("Evening"));

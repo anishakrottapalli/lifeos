@@ -1,5 +1,5 @@
 // The Journal: one folder per day, "Journal/2026-11-11/". The day's writing is
-// "2026-11-11.md"; pictures and audio recordings sit beside it in the same folder.
+// "2026-11-11.md"; pictures, videos and audio recordings sit beside it in the same folder.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Item } from "../core/types";
@@ -11,12 +11,23 @@ import { renderMarkdown } from "./markdown";
 import { Modal } from "./Modal";
 
 const IMAGE = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp", ".heic"];
+const VIDEO = [".mp4", ".mov", ".m4v", ".webm"];
 const AUDIO = [".m4a", ".mp3", ".wav", ".aac", ".aiff", ".caf", ".ogg", ".flac"];
 const DAY_PATH = /^Journal\/\d{4}-\d{2}-\d{2}\/[^/]+\.md$/;
 
-function kindOf(name: string): "image" | "audio" | "other" {
+type Kind = "image" | "video" | "audio" | "other";
+function kindOf(name: string): Kind {
   const e = extName(name).toLowerCase();
-  return IMAGE.includes(e) ? "image" : AUDIO.includes(e) ? "audio" : "other";
+  return IMAGE.includes(e) ? "image" : VIDEO.includes(e) ? "video" : AUDIO.includes(e) ? "audio" : "other";
+}
+
+/** The first line of writing, for the list (skips headings marks and picture/video/audio lines). */
+function firstLine(body: string): string {
+  for (const raw of body.split("\n")) {
+    const l = raw.replace(/^#+\s*|^[-*]\s*|\*\*/g, "").trim();
+    if (l && !/^!\[[^\]]*\]\([^)]*\)$/.test(l)) return l.length > 90 ? l.slice(0, 87) + "…" : l;
+  }
+  return "";
 }
 
 function niceDate(date: string): string {
@@ -104,9 +115,11 @@ export function JournalList({ go }: { go: (r: Route) => void }) {
           {days.map((d) => {
             const content = contentOf(store, d);
             const pics = content.filter((n) => kindOf(n) === "image").length;
+            const vids = content.filter((n) => kindOf(n) === "video").length;
             const recs = content.filter((n) => kindOf(n) === "audio").length;
             const bits = [
               pics ? `${pics} picture${pics === 1 ? "" : "s"}` : "",
+              vids ? `${vids} video${vids === 1 ? "" : "s"}` : "",
               recs ? `${recs} recording${recs === 1 ? "" : "s"}` : "",
             ].filter(Boolean);
             return (
@@ -114,6 +127,7 @@ export function JournalList({ go }: { go: (r: Route) => void }) {
                 <span className="row-icon">📓</span>
                 <span className="row-title">
                   <span className="strong">{d.title}</span> <span className="muted small">{niceDate(d.title)}</span>
+                  {firstLine(d.body) && <div className="muted small journal-preview">{firstLine(d.body)}</div>}
                 </span>
                 <span className="muted small">{bits.join(" · ")}</span>
               </li>
@@ -294,7 +308,7 @@ export function JournalDay({ itemId, go }: { itemId: string; go: (r: Route) => v
       <p className="muted">{niceDate(day.title)}</p>
 
       <div className="actions">
-        <button onClick={async () => add(await store.storage.pickFiles())}>+ Add pictures & audio</button>
+        <button onClick={async () => add(await store.storage.pickFiles())}>+ Add pictures, videos & audio</button>
         <button onClick={() => store.storage.reveal(dir)}>Show in Finder</button>
         <button
           className="danger"
@@ -326,7 +340,7 @@ export function JournalDay({ itemId, go }: { itemId: string; go: (r: Route) => v
             className="body-input"
             value={text}
             autoFocus
-            placeholder="Write about your day. Use + Add pictures & audio to put them exactly where the cursor is."
+            placeholder="Write about your day. Use + Add pictures, videos & audio to put them exactly where the cursor is."
             onChange={(e) => {
               setText(e.target.value);
               dirty.current = true;
@@ -376,8 +390,8 @@ export function JournalDay({ itemId, go }: { itemId: string; go: (r: Route) => v
   );
 }
 
-/** A picture or an audio player, shown through the window's file address. */
-function Media({ path, name, kind }: { path: string; name: string; kind: "image" | "audio" }) {
+/** A picture, video or audio player, shown through the window's file address. */
+function Media({ path, name, kind }: { path: string; name: string; kind: "image" | "video" | "audio" }) {
   const store = useStore();
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
@@ -390,11 +404,12 @@ function Media({ path, name, kind }: { path: string; name: string; kind: "image"
   if (!url) {
     return (
       <button className="bcard-file" onClick={() => store.storage.open(path)} title="Open">
-        <span className="bcard-file-icon">{kind === "image" ? "🖼️" : "🎙️"}</span>
+        <span className="bcard-file-icon">{kind === "image" ? "🖼️" : kind === "video" ? "🎬" : "🎙️"}</span>
         <span>{name}</span>
       </button>
     );
   }
+  if (kind === "video") return <video className="journal-img" controls preload="metadata" src={url} />;
   return kind === "image" ? (
     <img className="journal-img" src={url} alt={name} draggable={false} onDoubleClick={() => store.storage.open(path)} title="Double-click to open" />
   ) : (

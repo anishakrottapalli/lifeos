@@ -18,9 +18,10 @@ function inline(s: string): string {
   return out;
 }
 
+const VIDEO_EXT = /\.(mp4|mov|m4v|webm)$/i;
 const AUDIO_EXT = /\.(m4a|mp3|wav|aac|aiff|caf|ogg|flac)$/i;
 
-/** Journal days: a line like ![](photo.jpg) shows that file right there, a picture or an audio player. */
+/** Journal days: a line like ![](photo.jpg) shows that file right there: a picture, video or audio player. */
 export type MediaResolver = (name: string) => string | null | undefined;
 
 export function renderMarkdown(text: string, media?: MediaResolver): string {
@@ -61,6 +62,7 @@ export function renderMarkdown(text: string, media?: MediaResolver): string {
       }
       const url = media!(name);
       if (!url) html.push(`<p class="muted small">${escapeHtml(name)}</p>`);
+      else if (VIDEO_EXT.test(name)) html.push(`<video class="md-video" controls preload="metadata" src="${escapeHtml(url)}"></video>`);
       else if (AUDIO_EXT.test(name)) html.push(`<audio controls preload="metadata" src="${escapeHtml(url)}"></audio>`);
       else html.push(`<img class="md-img" src="${escapeHtml(url)}" alt="${escapeHtml(image[1] || name)}" />`);
       continue;
