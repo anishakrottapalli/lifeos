@@ -298,3 +298,5 @@ ul.plain { margin: 6px 0 0; padding-left: 18px; line-height: 1.7; }
 .md-img { display: block; max-width: 100%; height: auto; border-radius: var(--radius); margin: 10px 0; }
 .markdown audio { display: block; width: 100%; max-width: 420px; margin: 10px 0; }
 .journal-rec .journal-img { width: 120px; }
+.md-video { display: block; max-width: 100%; border-radius: var(--radius); margin: 10px 0; }
+.journal-preview { margin-top: 2px; }
