@@ -30,7 +30,7 @@ Each project is a folder: `<Name>/<name>.lifeos` is the project (`kind: project`
 
 ## Courses app
 
-`Knowledge/Courses/<title>.md`, fields Provider, Instructor, Status (Want / In progress / Done), Link, Progress, Finished. A program's parts are a numbered list under `## Parts` in the text. The Courses screen has a one-time **Import my Notion courses** button (`importCourses`, data in `src/core/notion-courses.ts`, copied from the Notion page on 2026-11-19; titles already there are skipped). Remove that file and button once Notion is retired.
+`Knowledge/Courses/<title>.md`, fields Instructor and Link (every page also has Files, notes, tags and links). A **program** (several courses, like a certificate) is a folder `Courses/<Name>/<Name>.md` with each of its courses as its own page beside it (`Courses/<Name>/<Course>.md`, order in a `Part` number). `isProgram`, `courseParts` and `courseParent` in `src/core/index.ts`; `addCoursePart` turns a plain course into a program (moving it and its files into a folder). The list screen shows only top-level courses; a program's page lists its courses, each clickable (`src/ui/CourseParts.tsx`). The Courses screen has a one-time **Import my Notion courses** button (`importCourses`, data in `src/core/notion-courses.ts`, copied from the Notion page on 2026-11-19; courses already there are skipped, and one imported earlier with a "Parts" list is upgraded). Provider and Status from that import stay in the files but aren't shown as fields. Remove that file and button once Notion is retired.
 
 ## Older Mac
 

@@ -136,12 +136,8 @@ export const DEFAULT_MODULES: ModuleDef[] = [
     storage: "mac",
     linkKinds: ["related"],
     fields: [
-      f("Provider"),
       f("Instructor"),
       f("Link", "url"),
-      f("Status", "select", ["Want", "In progress", "Done"]),
-      f("Progress"),
-      f("Finished", "date"),
     ],
   },
   {

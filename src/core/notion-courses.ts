@@ -9,6 +9,12 @@ export interface NotionCourse {
   parts?: string[];
 }
 
+/** A part is written "Course name | Instructor" (the instructor is optional). */
+export function splitPart(part: string): { title: string; instructor: string } {
+  const [title, ...rest] = part.split("|");
+  return { title: title.trim(), instructor: rest.join("|").trim() };
+}
+
 export const NOTION_COURSES: NotionCourse[] = [
   { title: "CAPM Exam Prep Seminar - PMBOK Guide, Sixth Edition", instructor: "Joseph Phillips", provider: "Udemy", status: "Done" },
   { title: "Build Your Life Resume", instructor: "Jesse Itzler", status: "Done" },

@@ -9,7 +9,7 @@ import { LifeIndex } from "./index";
 import { serializeItem } from "./notes";
 import { dateFromName, mediaLine } from "./journal";
 import { parseNote } from "./notability";
-import type { NotionCourse } from "./notion-courses";
+import { splitPart, type NotionCourse } from "./notion-courses";
 import { newId } from "./ids";
 import {
   ALL_PART_KEYS,
@@ -673,24 +673,108 @@ export class LifeStore {
     });
   }
 
-  /** One-time: add the courses copied from Notion as files in Knowledge/Courses. Titles already there are skipped. */
+  // ---------- Courses: a program holds several courses (its parts) ----------
+  /** Move a course into its own folder ("<Name>/<Name>.md") so courses can sit inside it. Its files go with it. */
+  private async makeProgramNow(course: Item): Promise<Item> {
+    const fresh = this.index.items.get(course.id) ?? course;
+    if (this.index.isProgram(fresh)) return fresh;
+    const mod = this.projectsLike("courses");
+    const dir = dirName(fresh.path);
+    const name = uniqueName(stripExt(fileName(fresh.path)), "", (n) => this.dirTaken(join(dir, n)));
+    const newDir = join(dir, name);
+    const newPath = join(newDir, `${name}.md`);
+    await this.storage.mkdir(newDir);
+    await this.storage.move(fresh.path, newPath);
+    for (const f of fresh.files) {
+      const from = join(dir, f);
+      if (await this.storage.exists(from)) await this.storage.move(from, join(newDir, f));
+    }
+    this.cache.delete(fresh.path);
+    const rel = newDir.slice(mod.folder.length).replace(/^\//, "");
+    await this.writeNote(newPath, serializeItem({ ...fresh, path: newPath, folder: rel }, mod));
+    await this.rescanNow();
+    return this.index.items.get(fresh.id) ?? fresh;
+  }
+
+  private projectsLike(id: string): ModuleDef {
+    const mod = this.module(id);
+    if (!mod) throw new Error(`Unknown app: ${id}`);
+    return mod;
+  }
+
+  private async createPartNow(program: Item, title: string, instructor: string, link = ""): Promise<Item> {
+    const mod = this.projectsLike("courses");
+    const dir = dirName(program.path);
+    const path = join(dir, uniqueName(safeName(title), ".md", this.taken(dir)));
+    const rel = dir.slice(mod.folder.length).replace(/^\//, "");
+    const part = this.blankItem(mod.id, "", title.trim() || "Untitled", path, "", rel);
+    const n = this.index.courseParts(program).reduce((m, i) => Math.max(m, Number(i.fields["Part"]) || 0), 0) + 1;
+    part.fields = { ...(instructor ? { Instructor: instructor } : {}), ...(link ? { Link: link } : {}), Part: n };
+    await this.writeNote(path, serializeItem(part, mod));
+    this.index.entries.push({ path, mtime: Date.now(), size: 0 });
+    await this.rescanNow();
+    return this.index.byPath.get(path) ?? part;
+  }
+
+  /** Add a course (a part) inside another course. The course becomes a program with its own folder if it isn't one yet. */
+  async addCoursePart(course: Item, title: string, instructor = ""): Promise<Item> {
+    return this.run(async () => {
+      const program = await this.makeProgramNow(course);
+      return this.createPartNow(program, title, instructor);
+    });
+  }
+
+  /** Is this Notion course fully in LifeOS already (and, for a program, with its parts as separate courses)? */
+  private courseDone(c: NotionCourse): boolean {
+    const existing = this.index.inModule("courses").find((i) => i.title.trim().toLowerCase() === c.title.trim().toLowerCase() && !this.index.courseParent(i));
+    if (!existing) return false;
+    if (!c.parts?.length) return true;
+    if (!this.index.isProgram(existing)) return false;
+    const have = new Set(this.index.courseParts(existing).map((p) => p.title.trim().toLowerCase()));
+    return c.parts.every((p) => have.has(splitPart(p).title.toLowerCase()));
+  }
+
+  coursesLeftToImport(courses: NotionCourse[]): number {
+    return courses.filter((c) => !this.courseDone(c)).length;
+  }
+
+  /**
+   * One-time: add the courses copied from Notion to Knowledge/Courses. A program (like "Become a
+   * Product Manager") gets its own folder with each of its courses as a separate page. Courses
+   * already there are skipped; one imported earlier with a "Parts" list is upgraded in place.
+   */
   async importCourses(courses: NotionCourse[]): Promise<{ added: number; skipped: number }> {
     return this.run(async () => {
-      const mod = this.module("courses");
-      if (!mod) throw new Error("The Courses app isn't available.");
-      const have = new Set(this.index.inModule("courses").map((i) => i.title.trim().toLowerCase()));
+      const mod = this.projectsLike("courses");
       let added = 0;
       for (const c of courses) {
-        if (have.has(c.title.trim().toLowerCase())) continue;
-        const path = join(mod.folder, uniqueName(safeName(c.title), ".md", this.taken(mod.folder)));
-        const body = c.parts?.length ? `## Parts\n\n${c.parts.map((p, i) => `${i + 1}. ${p}`).join("\n")}\n` : "";
-        const item = this.blankItem(mod.id, "", c.title, path, body, "");
-        item.fields = { ...(c.provider ? { Provider: c.provider } : {}), ...(c.instructor ? { Instructor: c.instructor } : {}), Status: c.status };
-        await this.writeNote(path, serializeItem(item, mod));
-        this.index.entries.push({ path, mtime: Date.now(), size: 0 });
+        if (this.courseDone(c)) continue;
+        let main = this.index.inModule("courses").find((i) => i.title.trim().toLowerCase() === c.title.trim().toLowerCase() && !this.index.courseParent(i));
+        if (!main) {
+          const fields = { ...(c.instructor ? { Instructor: c.instructor } : {}), ...(c.provider ? { Provider: c.provider } : {}), Status: c.status };
+          const name = c.parts?.length ? uniqueName(safeName(c.title), "", (n) => this.dirTaken(join(mod.folder, n))) : "";
+          const dir = name ? join(mod.folder, name) : mod.folder;
+          const path = name ? join(dir, `${name}.md`) : join(mod.folder, uniqueName(safeName(c.title), ".md", this.taken(mod.folder)));
+          const item = this.blankItem(mod.id, "", c.title, path, "", name);
+          item.fields = fields;
+          await this.writeNote(path, serializeItem(item, mod));
+          this.index.entries.push({ path, mtime: Date.now(), size: 0 });
+          await this.rescanNow();
+          main = this.index.byPath.get(path) ?? item;
+        } else if (c.parts?.length) {
+          main = await this.makeProgramNow(main);
+          // The old plain-text "Parts" list is replaced by the separate courses.
+          const body = main.body.replace(/\n?## Parts\n\n(?:\d+\. .*(?:\n|$))+/, "").replace(/^\s+/, "");
+          if (body !== main.body) await this.saveNow({ ...main, body }, false);
+          main = this.index.items.get(main.id) ?? main;
+        }
+        for (const part of c.parts ?? []) {
+          const { title, instructor } = splitPart(part);
+          const have = this.index.courseParts(main).some((p) => p.title.trim().toLowerCase() === title.toLowerCase());
+          if (!have) await this.createPartNow(main, title, instructor);
+        }
         added++;
       }
-      await this.rescanNow();
       return { added, skipped: courses.length - added };
     });
   }

@@ -511,19 +511,57 @@ describe("importing Notability notes", () => {
 });
 
 describe("moving courses over from Notion", () => {
-  it("adds each course as a file, with parts in the text, and doesn't repeat itself", async () => {
+  it("adds each course, with a program's courses as separate pages inside its folder, and doesn't repeat itself", async () => {
     const { NOTION_COURSES } = await import("./notion-courses");
     const { mem, store } = await fresh();
+    expect(store.coursesLeftToImport(NOTION_COURSES)).toBe(23);
     const r = await store.importCourses(NOTION_COURSES);
-    expect(r.added).toBe(NOTION_COURSES.length);
-    expect(NOTION_COURSES.length).toBe(23);
-    const ibm = store.index.inModule("courses").find((i) => i.title.startsWith("IBM Data Science"))!;
-    expect(ibm.path).toBe("Knowledge/Courses/IBM Data Science Professional Certificate.md");
-    expect(ibm.fields["Status"]).toBe("Done");
-    expect(ibm.fields["Provider"]).toBe("Coursera");
-    expect(ibm.body).toContain("10. Applied Data Science Capstone");
-    expect(mem.files.has("Knowledge/Courses/Adobe After Effects.md")).toBe(true);
+    expect(r.added).toBe(23);
+    expect(store.coursesLeftToImport(NOTION_COURSES)).toBe(0);
+    const pm = store.index.inModule("courses").find((i) => i.title === "Become a Product Manager")!;
+    expect(pm.path).toBe("Knowledge/Courses/Become a Product Manager/Become a Product Manager.md");
+    const parts = store.index.courseParts(pm);
+    expect(parts).toHaveLength(8);
+    expect(parts[0].title).toBe("Product Management First Steps");
+    expect(parts[0].fields["Instructor"]).toBe("Doug Winne");
+    expect(parts[7].title).toBe("Technology for Product Managers");
+    expect(parts[2].fields["Instructor"]).toBe("Eldad Persky and Teg Grenager");
+    expect(mem.files.has("Knowledge/Courses/Become a Product Manager/Product Management First Steps.md")).toBe(true);
+    expect(store.index.courseParent(parts[0])?.id).toBe(pm.id);
+    expect(pm.body).not.toContain("Parts");
+    expect(mem.files.has("Knowledge/Courses/Adobe Premiere Pro Essentials.md")).toBe(true);
     const again = await store.importCourses(NOTION_COURSES);
-    expect(again).toEqual({ added: 0, skipped: NOTION_COURSES.length });
+    expect(again.added).toBe(0);
+    expect(store.index.courseParts(pm)).toHaveLength(8);
+  });
+
+  it("upgrades a course imported earlier with a plain Parts list, and keeps its files", async () => {
+    const { NOTION_COURSES } = await import("./notion-courses");
+    const { mem, store } = await fresh();
+    mem.dropFile(
+      "Knowledge/Courses/UX Certificate.md",
+      "---\nid: ux1\ntitle: UX Certificate\nfiles:\n  - syllabus.pdf\nProvider: CareerFoundry\n---\n\n## Parts\n\n1. Intro to UX Design\n2. UX Immersion\n3. Front-End Development\n",
+    );
+    mem.dropFile("Knowledge/Courses/syllabus.pdf", "PDF");
+    await store.rescan();
+    await store.importCourses(NOTION_COURSES.filter((c) => c.title === "UX Certificate"));
+    const ux = store.index.items.get("ux1")!;
+    expect(ux.path).toBe("Knowledge/Courses/UX Certificate/UX Certificate.md");
+    expect(mem.files.has("Knowledge/Courses/UX Certificate/syllabus.pdf")).toBe(true);
+    expect(mem.files.has("Knowledge/Courses/UX Certificate.md")).toBe(false);
+    expect(ux.body).not.toContain("## Parts");
+    expect(ux.fields["Provider"]).toBe("CareerFoundry");
+    expect(store.index.courseParts(ux).map((p) => p.title)).toEqual(["Intro to UX Design", "UX Immersion", "Front-End Development"]);
+  });
+
+  it("adding a course inside a plain course turns it into a program", async () => {
+    const { mem, store } = await fresh();
+    const c = await store.createItem("courses", "Spanish", "", {});
+    const part = await store.addCoursePart(c, "Spanish 101", "Ms. Lopez");
+    expect(part.path).toBe("Knowledge/Courses/Spanish/Spanish 101.md");
+    expect(mem.files.has("Knowledge/Courses/Spanish/Spanish.md")).toBe(true);
+    const next = await store.addCoursePart(store.index.items.get(c.id)!, "Spanish 102");
+    expect(next.fields["Part"]).toBe(2);
+    expect(store.index.courseParts(store.index.items.get(c.id)!).map((p) => p.title)).toEqual(["Spanish 101", "Spanish 102"]);
   });
 });
