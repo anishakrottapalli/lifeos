@@ -432,3 +432,51 @@ describe("pasted journal pictures", () => {
     expect(again).not.toBe(name); // never overwrites
   });
 });
+
+const NOTE_B64 = "UEsDBBQAAAAAAEGlc12+d+ImeQEAAHkBAAAZAAAAT2N0IDQsIDIwMjYvU2Vzc2lvbi5wbGlzdGJwbGlzdDAw1AECAwQFBhkcWSRhcmNoaXZlclgkb2JqZWN0c1QkdG9wWCR2ZXJzaW9uXxAPTlNLZXllZEFyY2hpdmVypgcICw4RFlUkbnVsbNEJClhyaWNoVGV4dIAC0QwNXxAZTkJBdHRyaWJ1dGVkQmFja2luZ1N0cmluZ4AD0Q8QXxAiTkJBdHRyaWJ1dGVkQmFja2luZ1N0cmluZ0NvZGluZ0tleYAE0hITFBVZc3RyaW5nS2V5XHN1YlJhbmdlc0tleYAFgADRFxhYTlMuYnl0ZXNPEDdEZWFyIGRpYXJ5LgpUb2RheSB3YXMgZ29vZCAocmVhbGx5KS4KClNlY29uZCBwYXJhZ3JhcGgu0RobVHJvb3SAARIAAYagAAgAEQAbACQAKQAyAEQASwBRAFQAXQBfAGIAfgCAAIMAqACqAK8AuQDGAMgAygDNANYBEAETARgBGgAAAAAAAAIBAAAAAAAAAB0AAAAAAAAAAAAAAAAAAAEfUEsDBBQAAAAAAEGlc10+verH2wAAANsAAAAaAAAAT2N0IDQsIDIwMjYvbWV0YWRhdGEucGxpc3RicGxpc3QwMNQBAgMEBQYRFFkkYXJjaGl2ZXJYJG9iamVjdHNUJHRvcFgkdmVyc2lvbl8QD05TS2V5ZWRBcmNoaXZlcqQHCA0OVSRudWxs0gkKCwxfEBNub3RlQ3JlYXRpb25EYXRlS2V5WG5vdGVOYW1lgAOAAltPY3QgNCwgMjAyNtEPEFdOUy50aW1lI0HIOmVlwAAA0RITVHJvb3SAARIAAYagCBEbJCkyRElPVGpzdXeDho6Xmp+hAAAAAAAAAQEAAAAAAAAAFQAAAAAAAAAAAAAAAAAAAKZQSwMEFAAAAAAAQaVzXUcYGtsHAAAABwAAAB4AAABPY3QgNCwgMjAyNi9JbWFnZXMvcGljIG9uZS5wbmdQTkdEQVRBUEsDBBQAAAAAAEGlc10l9CnvBQAAAAUAAAAeAAAAT2N0IDQsIDIwMjYvUmVjb3JkaW5ncy9yZWMubTRhQVVESU9QSwMEFAAAAAAAQaVzXYMW3IwBAAAAAQAAACQAAABPY3QgNCwgMjAyNi9SZWNvcmRpbmdzL2xpYnJhcnkucGxpc3R4UEsBAhQDFAAAAAAAQaVzXb534iZ5AQAAeQEAABkAAAAAAAAAAAAAAIABAAAAAE9jdCA0LCAyMDI2L1Nlc3Npb24ucGxpc3RQSwECFAMUAAAAAABBpXNdPr3qx9sAAADbAAAAGgAAAAAAAAAAAAAAgAGwAQAAT2N0IDQsIDIwMjYvbWV0YWRhdGEucGxpc3RQSwECFAMUAAAAAABBpXNdRxga2wcAAAAHAAAAHgAAAAAAAAAAAAAAgAHDAgAAT2N0IDQsIDIwMjYvSW1hZ2VzL3BpYyBvbmUucG5nUEsBAhQDFAAAAAAAQaVzXSX0Ke8FAAAABQAAAB4AAAAAAAAAAAAAAIABBgMAAE9jdCA0LCAyMDI2L1JlY29yZGluZ3MvcmVjLm00YVBLAQIUAxQAAAAAAEGlc12DFtyMAQAAAAEAAAAkAAAAAAAAAAAAAACAAUcDAABPY3QgNCwgMjAyNi9SZWNvcmRpbmdzL2xpYnJhcnkucGxpc3RQSwUGAAAAAAUABQB5AQAAigMAAAAA";
+const noteBinary = () => atob(NOTE_B64);
+
+describe("importing Notability notes", () => {
+  it("reads the text, date, pictures and recordings out of a .note file", async () => {
+    const { parseNote } = await import("./notability");
+    const bytes = Uint8Array.from(noteBinary(), (c) => c.charCodeAt(0));
+    const note = await parseNote(bytes);
+    expect(note.title).toBe("Oct 4, 2026");
+    expect(note.created).toMatch(/^2026-10-0[56]$/);
+    expect(note.text).toBe("Dear diary.\nToday was good (really).\n\nSecond paragraph.");
+    expect(note.files.map((f) => [f.kind, f.name])).toEqual([["image", "pic one.png"], ["audio", "rec.m4a"]]);
+  });
+
+  it("makes a day from the title's date, keeps pictures and recordings as files, trashes the .note", async () => {
+    const { mem, store } = await fresh();
+    mem.external.set("/Users/you/Desktop/Oct 4, 2026.note", noteBinary());
+    mem.external.set("/Users/you/Desktop/Readme.txt", "hi");
+    const r = await store.importNoteFiles(["/Users/you/Desktop/Oct 4, 2026.note", "/Users/you/Desktop/Readme.txt"]);
+    expect(r.imported).toBe(1);
+    expect(r.problems).toEqual(["Readme.txt: not a Notability .note file, left where it is"]);
+    const day = store.index.byPath.get("Journal/2026-10-04/2026-10-04.md")!;
+    expect(day.body).toContain("Dear diary.\nToday was good (really).");
+    expect(day.body).toContain("![](pic%20one.png)");
+    expect(day.body).toContain("![](rec.m4a)");
+    expect(mem.files.has("Journal/2026-10-04/pic one.png")).toBe(true);
+    expect(mem.files.has("Journal/2026-10-04/rec.m4a")).toBe(true);
+    expect([...mem.files.keys()].some((p) => p.startsWith(".trash/") && p.endsWith("Oct 4, 2026.note"))).toBe(true);
+    expect(mem.files.has("Journal/.import/Oct 4, 2026.note")).toBe(false);
+    // importing the same note again doesn't repeat it
+    mem.external.set("/Users/you/Desktop/Oct 4, 2026.note", noteBinary());
+    const again = await store.importNoteFiles(["/Users/you/Desktop/Oct 4, 2026.note"]);
+    expect(again.imported).toBe(0);
+    expect(again.problems[0]).toContain("already in the Journal");
+  });
+
+  it("reads dates from file names", async () => {
+    const { dateFromName } = await import("./journal");
+    expect(dateFromName("2025-03-14 Journal")).toBe("2025-03-14");
+    expect(dateFromName("March 14, 2025")).toBe("2025-03-14");
+    expect(dateFromName("Oct 4, 2026")).toBe("2026-10-04");
+    expect(dateFromName("14 March 2025 - notes")).toBe("2025-03-14");
+    expect(dateFromName("3/14/2025")).toBe("2025-03-14");
+    expect(dateFromName("Dear diary")).toBe("");
+    expect(dateFromName("2025-13-40")).toBe("");
+  });
+});

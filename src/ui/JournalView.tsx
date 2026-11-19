@@ -3,24 +3,16 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Item } from "../core/types";
-import { dirName, extName, fileName, join } from "../core/paths";
+import { dirName, fileName, join } from "../core/paths";
+import { kindOf, mediaLine, type MediaKind } from "../core/journal";
 import { inTauri } from "../core/storage";
 import { today } from "../core/paths";
 import { useStore, type Route } from "./hooks";
 import { renderMarkdown } from "./markdown";
 import { Modal } from "./Modal";
 
-const IMAGE = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp", ".heic"];
-const VIDEO = [".mp4", ".mov", ".m4v", ".webm"];
-const AUDIO = [".m4a", ".mp3", ".wav", ".aac", ".aiff", ".caf", ".ogg", ".flac"];
 const PASTE_EXT: Record<string, string> = { "image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif", "image/webp": ".webp", "image/heic": ".heic", "image/tiff": ".tiff" };
 const DAY_PATH = /^Journal\/\d{4}-\d{2}-\d{2}\/[^/]+\.md$/;
-
-type Kind = "image" | "video" | "audio" | "other";
-function kindOf(name: string): Kind {
-  const e = extName(name).toLowerCase();
-  return IMAGE.includes(e) ? "image" : VIDEO.includes(e) ? "video" : AUDIO.includes(e) ? "audio" : "other";
-}
 
 /** The first line of writing, for the list (skips headings marks and picture/video/audio lines). */
 function firstLine(body: string): string {
@@ -45,11 +37,6 @@ function contentOf(store: ReturnType<typeof useStore>, day: Item) {
     .sort((a, b) => a.localeCompare(b));
 }
 
-/** The line that puts a file in the text: ![](photo.jpg). Spaces and brackets are escaped so it stays one piece. */
-function mediaLine(name: string): string {
-  return `![](${encodeURIComponent(name).replace(/\(/g, "%28").replace(/\)/g, "%29")})`;
-}
-
 /** Names of the files a text already shows. */
 function placedNames(text: string): Set<string> {
   const out = new Set<string>();
@@ -68,6 +55,8 @@ export function JournalList({ go }: { go: (r: Route) => void }) {
   const [adding, setAdding] = useState(false);
   const [date, setDate] = useState(today());
   const [error, setError] = useState("");
+  const [result, setResult] = useState<{ imported: number; problems: string[] } | null>(null);
+  const [importing, setImporting] = useState(false);
   const days = useMemo(
     () =>
       store.index
@@ -88,6 +77,18 @@ export function JournalList({ go }: { go: (r: Route) => void }) {
     }
   }
 
+  async function importNotes() {
+    const picked = await store.storage.pickFiles();
+    if (!picked.length) return;
+    setImporting(true);
+    try {
+      setResult(await store.importNoteFiles(picked));
+    } catch (e) {
+      setResult({ imported: 0, problems: [`Something went wrong: ${e}`] });
+    }
+    setImporting(false);
+  }
+
   return (
     <div className="page">
       <header className="page-head">
@@ -96,6 +97,13 @@ export function JournalList({ go }: { go: (r: Route) => void }) {
             <span className="title-icon">📓</span> Journal
           </h1>
           <div className="actions">
+            <button
+              onClick={importNotes}
+              disabled={importing}
+              title="Bring in Notability entries (.note files). The date comes from each note's title."
+            >
+              {importing ? "Importing…" : "Import from Notability"}
+            </button>
             <button onClick={() => store.storage.mkdir("Journal").then(() => store.storage.reveal("Journal"))}>Show in Finder</button>
             <button className="primary" onClick={() => setAdding(true)}>
               + New day
@@ -135,6 +143,30 @@ export function JournalList({ go }: { go: (r: Route) => void }) {
             );
           })}
         </ul>
+      )}
+
+      {result && (
+        <Modal close={() => setResult(null)}>
+          <h2>Import finished</h2>
+          <p>
+            {result.imported} entr{result.imported === 1 ? "y" : "ies"} added to the Journal.
+          </p>
+          {result.problems.length > 0 && (
+            <>
+              <p className="muted small">These need a look:</p>
+              <ul className="plain">
+                {result.problems.map((n) => (
+                  <li key={n}>{n}</li>
+                ))}
+              </ul>
+            </>
+          )}
+          <div className="modal-actions">
+            <button className="primary" onClick={() => setResult(null)}>
+              OK
+            </button>
+          </div>
+        </Modal>
       )}
 
       {adding && (
@@ -410,7 +442,7 @@ export function JournalDay({ itemId, go }: { itemId: string; go: (r: Route) => v
 }
 
 /** A picture, video or audio player, shown through the window's file address. */
-function Media({ path, name, kind }: { path: string; name: string; kind: "image" | "video" | "audio" }) {
+function Media({ path, name, kind }: { path: string; name: string; kind: Exclude<MediaKind, "other"> }) {
   const store = useStore();
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
