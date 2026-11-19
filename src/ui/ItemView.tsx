@@ -4,6 +4,7 @@ import { dirName, join, today } from "../core/paths";
 import { displayValue, timeAgo, useStore, type Route } from "./hooks";
 import { LinkPicker } from "./LinkPicker";
 import { renderMarkdown } from "./markdown";
+import { CourseParts } from "./CourseParts";
 import { hasOverview } from "../core/projects";
 
 const SAVE_DELAY = 700;
@@ -227,6 +228,16 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
 
       {isProject && (
         <p className="muted small">Last updated {draft.updated.replace("T", " ").slice(0, 16)}</p>
+      )}
+
+      {draft.module === "courses" && (
+        <CourseParts
+          course={draft}
+          go={go}
+          beforeChange={async () => {
+            if (dirtyRef.current) await persist(latest.current!, false);
+          }}
+        />
       )}
 
       {!isProject && <TagInput tags={draft.tags} all={store.index.allTags()} onChange={(tags) => change({ tags }, { now: true })} />}

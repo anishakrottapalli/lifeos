@@ -12,7 +12,8 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
   const [folder, setFolder] = useState("");
   const [editingFields, setEditingFields] = useState(false);
 
-  const all = store.index.inModule(moduleId);
+  // In Courses, the courses inside a program are listed on the program's page, not here.
+  const all = store.index.inModule(moduleId).filter((i) => !store.index.courseParent(i));
   const tags = useMemo(() => [...new Set(all.flatMap((i) => i.tags))].sort(), [all]);
   const folders = store.index.subfolders(moduleId);
   const loose = store.index.unfiled(moduleId);
@@ -26,7 +27,7 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
   const columns = mod.fields.slice(0, 3);
 
   const toImport =
-    moduleId === "courses" ? NOTION_COURSES.filter((c) => !all.some((i) => i.title.trim().toLowerCase() === c.title.trim().toLowerCase())).length : 0;
+    moduleId === "courses" ? store.coursesLeftToImport(NOTION_COURSES) : 0;
   const [importing, setImporting] = useState(false);
   async function importCourses() {
     setImporting(true);

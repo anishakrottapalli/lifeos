@@ -2,7 +2,7 @@
 // It is never the source of truth; the files are.
 
 import type { Entry, Item, ModuleDef } from "./types";
-import { BOARD_FILE, dirName, fileName, isBoardFile, isNote, join } from "./paths";
+import { BOARD_FILE, dirName, fileName, isBoardFile, isNote, join, stripExt } from "./paths";
 import { parseBoardFile, parseItem } from "./notes";
 
 export interface Backlink {
@@ -144,6 +144,33 @@ export class LifeIndex {
     if (!item.kind || item.kind === "project") return item.title;
     const p = this.projectFor(item);
     return p ? `${p.title} › ${item.title}` : item.title;
+  }
+
+  // ---------- courses: a program is a folder "<Name>/<Name>.md" with its courses (parts) beside it ----------
+  isProgram(item: Item): boolean {
+    const mod = this.module("courses");
+    if (!mod || item.module !== "courses") return false;
+    const dir = dirName(item.path);
+    return dir.startsWith(mod.folder + "/") && stripExt(fileName(item.path)) === fileName(dir);
+  }
+
+  /** The courses inside a program, in the order they were added. */
+  courseParts(program: Item): Item[] {
+    if (!this.isProgram(program)) return [];
+    const dir = dirName(program.path);
+    const order = (i: Item) => (Number(i.fields["Part"]) > 0 ? Number(i.fields["Part"]) : 9999);
+    return [...this.items.values()]
+      .filter((i) => i.module === "courses" && i.id !== program.id && dirName(i.path) === dir)
+      .sort((a, b) => order(a) - order(b) || a.title.localeCompare(b.title));
+  }
+
+  /** The program a course sits inside (undefined for a course on its own, and for a program). */
+  courseParent(item: Item): Item | undefined {
+    const mod = this.module("courses");
+    if (!mod || item.module !== "courses" || this.isProgram(item)) return undefined;
+    const dir = dirName(item.path);
+    if (!dir.startsWith(mod.folder + "/")) return undefined;
+    return this.byPath.get(join(dir, `${fileName(dir)}.md`));
   }
 
   /** The documentation page for one of LifeOS's own apps, if a project has one. */
