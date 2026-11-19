@@ -469,6 +469,25 @@ describe("importing Notability notes", () => {
     expect(again.problems[0]).toContain("already in the Journal");
   });
 
+  it("takes the date only from the note's title, never the file name or creation date", async () => {
+    const { mem, store } = await fresh();
+    // same note, but the file is named with a different date and the title has to decide
+    mem.external.set("/Users/you/Desktop/2020-01-01 export.note", noteBinary());
+    await store.importNoteFiles(["/Users/you/Desktop/2020-01-01 export.note"]);
+    expect(store.index.byPath.has("Journal/2026-10-04/2026-10-04.md")).toBe(true);
+    expect(store.index.byPath.has("Journal/2020-01-01/2020-01-01.md")).toBe(false);
+    expect(store.index.byPath.has("Journal/2026-10-06/2026-10-06.md")).toBe(false);
+  });
+
+  it("leaves a note whose title has no date alone and says why", async () => {
+    const { mem, store } = await fresh();
+    mem.external.set("/Users/you/Desktop/Dear diary.note", atob("UEsDBBQAAAAAAKalc101BcTxJQEAACUBAAAYAAAARGVhciBkaWFyeS9TZXNzaW9uLnBsaXN0YnBsaXN0MDDUAQIDBAUGFxpZJGFyY2hpdmVyWCRvYmplY3RzVCR0b3BYJHZlcnNpb25fEA9OU0tleWVkQXJjaGl2ZXKmBwgLDhEUVSRudWxs0QkKWHJpY2hUZXh0gALRDA1fEBlOQkF0dHJpYnV0ZWRCYWNraW5nU3RyaW5ngAPRDxBfECJOQkF0dHJpYnV0ZWRCYWNraW5nU3RyaW5nQ29kaW5nS2V5gATREhNZc3RyaW5nS2V5gAXRFRZYTlMuYnl0ZXNPEBNXb3JkcyB3aXRoIG5vIGRhdGUu0RgZVHJvb3SAARIAAYagCBEbJCkyREtRVF1fYn6Ag6iqrbe5vMXb3uPlAAAAAAAAAQEAAAAAAAAAGwAAAAAAAAAAAAAAAAAAAOpQSwMEFAAAAAAApqVzXc3AW97aAAAA2gAAABkAAABEZWFyIGRpYXJ5L21ldGFkYXRhLnBsaXN0YnBsaXN0MDDUAQIDBAUGERRZJGFyY2hpdmVyWCRvYmplY3RzVCR0b3BYJHZlcnNpb25fEA9OU0tleWVkQXJjaGl2ZXKkBwgNDlUkbnVsbNIJCgsMXxATbm90ZUNyZWF0aW9uRGF0ZUtleVhub3RlTmFtZYADgAJaRGVhciBkaWFyedEPEFdOUy50aW1lI0HIOmVlwAAA0RITVHJvb3SAARIAAYagCBEbJCkyRElPVGpzdXeChY2WmZ6gAAAAAAAAAQEAAAAAAAAAFQAAAAAAAAAAAAAAAAAAAKVQSwECFAMUAAAAAACmpXNdNQXE8SUBAAAlAQAAGAAAAAAAAAAAAAAAgAEAAAAARGVhciBkaWFyeS9TZXNzaW9uLnBsaXN0UEsBAhQDFAAAAAAApqVzXc3AW97aAAAA2gAAABkAAAAAAAAAAAAAAIABWwEAAERlYXIgZGlhcnkvbWV0YWRhdGEucGxpc3RQSwUGAAAAAAIAAgCNAAAAbAIAAAAA"));
+    const r = await store.importNoteFiles(["/Users/you/Desktop/Dear diary.note"]);
+    expect(r.imported).toBe(0);
+    expect(r.problems[0]).toContain('title "Dear diary" has no date');
+    expect(store.index.inModule("journal")).toHaveLength(0);
+  });
+
   it("reads dates from file names", async () => {
     const { dateFromName } = await import("./journal");
     expect(dateFromName("2025-03-14 Journal")).toBe("2025-03-14");

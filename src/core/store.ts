@@ -541,8 +541,7 @@ export class LifeStore {
   /**
    * Bring in Notability entries (.note files). Each one becomes a Journal day: the typed text
    * becomes the day's writing, and any pictures or recordings become files in the day's folder.
-   * The date comes from the note's title (e.g. "Oct 4, 2026"), then its file name, then the date
-   * it was created. The .note file itself moves to LifeOS/.trash when it has been read.
+   * The date comes only from the note's title (e.g. "Oct 4, 2026"). The .note file itself moves to LifeOS/.trash when it has been read.
    */
   async importNoteFiles(absPaths: string[]): Promise<{ imported: number; problems: string[] }> {
     return this.run(async () => {
@@ -562,8 +561,9 @@ export class LifeStore {
           const bytes = await this.storage.readBytes(staged);
           if (!bytes) throw new Error("couldn't read the file");
           const note = await parseNote(bytes);
-          const date = dateFromName(note.title) || dateFromName(orig) || note.created;
-          if (!date) throw new Error("it has no date; put a date in its title, like 2026-10-04");
+          // The date is only ever the one written in the note's title. Other dates (like when the file was made) can be a different day.
+          const date = dateFromName(note.title);
+          if (!date) throw new Error(`its title "${note.title || "(none)"}" has no date. Put the date in the title in Notability (like Oct 4, 2026) and import it again`);
           if (!note.text.trim() && note.files.length === 0) throw new Error("it has no typed text or pictures (handwriting can't be turned into text)");
           const day = await this.openDayNow(date);
           const dir = dirName(day.path);
