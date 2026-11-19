@@ -89,3 +89,54 @@ export function CourseParts({ course, go, beforeChange }: { course: Item; go: (r
     </section>
   );
 }
+
+/** On a course's page: bring in Notability notes (.note files) for this course. */
+export function CourseNoteImport({ course, beforeChange }: { course: Item; beforeChange: () => Promise<void> }) {
+  const store = useStore();
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ imported: number; problems: string[] } | null>(null);
+
+  async function run() {
+    const picked = await store.storage.pickFiles();
+    if (!picked.length) return;
+    setBusy(true);
+    try {
+      await beforeChange();
+      setResult(await store.importCourseNotes(store.index.items.get(course.id) ?? course, picked));
+    } catch (e) {
+      setResult({ imported: 0, problems: [`Something went wrong: ${e}`] });
+    }
+    setBusy(false);
+  }
+
+  return (
+    <>
+      <button className="small-button" onClick={run} disabled={busy} title="Bring in Notability notes (.note files) for this course">
+        {busy ? "Importing…" : "+ Import Notability notes"}
+      </button>
+      {result && (
+        <Modal close={() => setResult(null)}>
+          <h2>Import finished</h2>
+          <p>
+            {result.imported} note{result.imported === 1 ? "" : "s"} added to {course.title}.
+          </p>
+          {result.problems.length > 0 && (
+            <>
+              <p className="muted small">These need a look:</p>
+              <ul className="plain">
+                {result.problems.map((n) => (
+                  <li key={n}>{n}</li>
+                ))}
+              </ul>
+            </>
+          )}
+          <div className="modal-actions">
+            <button className="primary" onClick={() => setResult(null)}>
+              OK
+            </button>
+          </div>
+        </Modal>
+      )}
+    </>
+  );
+}

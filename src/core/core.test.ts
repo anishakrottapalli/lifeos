@@ -565,3 +565,39 @@ describe("moving courses over from Notion", () => {
     expect(store.index.courseParts(store.index.items.get(c.id)!).map((p) => p.title)).toEqual(["Spanish 101", "Spanish 102"]);
   });
 });
+
+describe("Notability notes inside a course", () => {
+  it("adds the typed text to Notes, keeps pictures and the original .note in Files, in the course's own folder", async () => {
+    const { mem, store } = await fresh();
+    const course = await store.createItem("courses", "Spanish", "", {});
+    mem.external.set("/Users/you/Desktop/Lesson 1.note", noteBinary());
+    mem.external.set("/Users/you/Desktop/notes.txt", "x");
+    const r = await store.importCourseNotes(course, ["/Users/you/Desktop/Lesson 1.note", "/Users/you/Desktop/notes.txt"]);
+    expect(r.imported).toBe(1);
+    expect(r.problems).toEqual(["notes.txt: not a Notability .note file, left where it is"]);
+    const c = store.index.items.get(course.id)!;
+    expect(c.path).toBe("Knowledge/Courses/Spanish/Spanish.md");
+    expect(c.body).toContain("## Oct 4, 2026");
+    expect(c.body).toContain("Dear diary.\nToday was good (really).");
+    expect(c.files.sort()).toEqual(["Oct 4, 2026.note", "pic one.png", "rec.m4a"]);
+    expect(mem.files.has("Knowledge/Courses/Spanish/Oct 4, 2026.note")).toBe(true);
+    expect(mem.files.has("Knowledge/Courses/Spanish/pic one.png")).toBe(true);
+    expect(mem.files.has("Knowledge/Courses/.import/Lesson 1.note")).toBe(false);
+    // the same note again: only the original is kept, the text isn't repeated
+    mem.external.set("/Users/you/Desktop/Lesson 1 copy.note", noteBinary());
+    const again = await store.importCourseNotes(c, ["/Users/you/Desktop/Lesson 1 copy.note"]);
+    expect(again.imported).toBe(0);
+    expect(store.index.items.get(course.id)!.body.match(/Dear diary/g)).toHaveLength(1);
+  });
+
+  it("a note inside a program's course goes in that course, next to the others", async () => {
+    const { mem, store } = await fresh();
+    const prog = await store.createItem("courses", "UX Certificate", "", {});
+    const part = await store.addCoursePart(prog, "UX Immersion");
+    mem.external.set("/Users/you/Desktop/Week 1.note", noteBinary());
+    await store.importCourseNotes(part, ["/Users/you/Desktop/Week 1.note"]);
+    expect(mem.files.has("Knowledge/Courses/UX Certificate/Oct 4, 2026.note")).toBe(true);
+    expect(store.index.items.get(part.id)!.body).toContain("Today was good");
+    expect(store.index.items.get(prog.id)!.body).not.toContain("Today was good");
+  });
+});

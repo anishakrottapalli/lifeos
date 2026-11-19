@@ -4,7 +4,7 @@ import { dirName, join, today } from "../core/paths";
 import { displayValue, timeAgo, useStore, type Route } from "./hooks";
 import { LinkPicker } from "./LinkPicker";
 import { renderMarkdown } from "./markdown";
-import { CourseParts } from "./CourseParts";
+import { CourseNoteImport, CourseParts } from "./CourseParts";
 import { hasOverview } from "../core/projects";
 
 const SAVE_DELAY = 700;
@@ -281,6 +281,15 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
       <section>
         <div className="section-head">
           <h3>Files</h3>
+          <span className="row-actions">
+          {draft.module === "courses" && (
+            <CourseNoteImport
+              course={draft}
+              beforeChange={async () => {
+                if (dirtyRef.current) await persist(latest.current!, false);
+              }}
+            />
+          )}
           <button
             className="small-button"
             onClick={async () => {
@@ -294,6 +303,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
           >
             + Add files
           </button>
+          </span>
         </div>
         {draft.files.length === 0 ? (
           <p className="muted small">No files. Added files are moved (not copied) into this item's folder.</p>
