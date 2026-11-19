@@ -12,7 +12,8 @@ import { renderMarkdown } from "./markdown";
 import { Modal } from "./Modal";
 
 const PASTE_EXT: Record<string, string> = { "image/png": ".png", "image/jpeg": ".jpg", "image/gif": ".gif", "image/webp": ".webp", "image/heic": ".heic", "image/tiff": ".tiff" };
-const DAY_PATH = /^Journal\/\d{4}-\d{2}-\d{2}\/[^/]+\.md$/;
+const DAY_PATH = /^Journal\/[^/.][^/]*\/[^/]+\.md$/;
+const IS_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** The first line of writing, for the list (skips headings marks and picture/video/audio lines). */
 function firstLine(body: string): string {
@@ -62,7 +63,8 @@ export function JournalList({ go }: { go: (r: Route) => void }) {
       store.index
         .inModule("journal")
         .filter((i) => DAY_PATH.test(i.path))
-        .sort((a, b) => b.title.localeCompare(a.title)),
+        // Days newest first, then entries named by a title (A to Z).
+        .sort((a, b) => Number(IS_DATE.test(b.title)) - Number(IS_DATE.test(a.title)) || (IS_DATE.test(a.title) ? b.title.localeCompare(a.title) : a.title.localeCompare(b.title))),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [store.index.items, store.version],
   );
@@ -135,7 +137,7 @@ export function JournalList({ go }: { go: (r: Route) => void }) {
               <li key={d.id} className="row" onClick={() => go({ view: "item", id: d.id })}>
                 <span className="row-icon">📓</span>
                 <span className="row-title">
-                  <span className="strong">{d.title}</span> <span className="muted small">{niceDate(d.title)}</span>
+                  <span className="strong">{d.title}</span> {IS_DATE.test(d.title) && <span className="muted small">{niceDate(d.title)}</span>}
                   {firstLine(d.body) && <div className="muted small journal-preview">{firstLine(d.body)}</div>}
                 </span>
                 <span className="muted small">{bits.join(" · ")}</span>
@@ -338,7 +340,7 @@ export function JournalDay({ itemId, go }: { itemId: string; go: (r: Route) => v
         <span className="status muted small">{status}</span>
       </div>
       <h1>{day.title}</h1>
-      <p className="muted">{niceDate(day.title)}</p>
+      {IS_DATE.test(day.title) && <p className="muted">{niceDate(day.title)}</p>}
 
       <div className="actions">
         <button onClick={async () => add(await store.storage.pickFiles())}>+ Add pictures, videos & audio</button>

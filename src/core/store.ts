@@ -525,6 +525,7 @@ export class LifeStore {
     return this.run(() => this.openDayNow(date));
   }
 
+  /** A day (named by its date) or, for notes with no date in their title, an entry named by its title. */
   private async openDayNow(date: string): Promise<Item> {
     const mod = this.module("journal");
     if (!mod) throw new Error("The Journal app isn't available.");
@@ -532,16 +533,27 @@ export class LifeStore {
     const existing = this.index.byPath.get(path);
     if (existing) return existing;
     const item = this.blankItem(mod.id, "", date, path, "", date);
-    item.fields = { Date: date };
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) item.fields = { Date: date };
     await this.writeNote(path, serializeItem(item, mod));
     await this.rescanNow();
     return this.index.items.get(item.id) ?? item;
   }
 
+  /** For a note with no date in its title: its title as a folder name, "Title 2" if a different entry already has it. */
+  private freeEntryName(title: string, text: string): string {
+    const base = safeName(title);
+    const folder = this.module("journal")?.folder ?? "Journal";
+    for (let n = 1; ; n++) {
+      const name = n === 1 ? base : `${base} ${n}`;
+      const existing = this.index.byPath.get(join(folder, name, `${name}.md`));
+      if (!existing || (text && existing.body.includes(text.slice(0, 200)))) return name;
+    }
+  }
+
   /**
    * Bring in Notability entries (.note files). Each one becomes a Journal day: the typed text
    * becomes the day's writing, and any pictures or recordings become files in the day's folder.
-   * The date comes only from the note's title (e.g. "Oct 4, 2026"). The .note file itself moves to LifeOS/.trash when it has been read.
+   * The day comes only from the date in the note's title (e.g. "Oct 4, 2026"); a title with no date is used as the entry's name instead. The .note file itself moves to LifeOS/.trash when it has been read.
    */
   async importNoteFiles(absPaths: string[]): Promise<{ imported: number; problems: string[] }> {
     return this.run(async () => {
@@ -561,9 +573,9 @@ export class LifeStore {
           const bytes = await this.storage.readBytes(staged);
           if (!bytes) throw new Error("couldn't read the file");
           const note = await parseNote(bytes);
-          // The date is only ever the one written in the note's title. Other dates (like when the file was made) can be a different day.
-          const date = dateFromName(note.title);
-          if (!date) throw new Error(`its title "${note.title || "(none)"}" has no date. Put the date in the title in Notability (like Oct 4, 2026) and import it again`);
+          // The day is only ever the date written in the note's title (other dates, like when the
+          // file was made, can be a different day). With no date in the title, the title is the name.
+          const date = dateFromName(note.title) || this.freeEntryName(note.title || stripExt(orig), note.text.trim());
           if (!note.text.trim() && note.files.length === 0) throw new Error("it has no typed text or pictures (handwriting can't be turned into text)");
           const day = await this.openDayNow(date);
           const dir = dirName(day.path);
@@ -594,7 +606,7 @@ export class LifeStore {
           for (let n = 2; await this.storage.exists(trash); n++) trash = join(".trash", stamp, `${stripExt(staged)} ${n}.note`);
           await this.storage.move(staged, trash);
           await this.rescanNow();
-          if (already) problems.push(`${orig}: already in the Journal on ${date}, not added twice`);
+          if (already) problems.push(`${orig}: already in the Journal (${date}), not added twice`);
           else imported++;
         } catch (e) {
           const why = e instanceof Error ? e.message : String(e);
