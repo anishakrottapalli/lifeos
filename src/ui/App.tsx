@@ -3,7 +3,7 @@ import { useStore, type Route } from "./hooks";
 import { Sidebar } from "./Sidebar";
 import { Home } from "./Home";
 import { ModuleView } from "./ModuleView";
-import { BlankApp, SHOW_APP_LISTS } from "./BlankApp";
+import { BlankApp, LIST_APPS, SHOW_APP_LISTS } from "./BlankApp";
 import { JournalDay, JournalList } from "./JournalView";
 import { ItemView } from "./ItemView";
 import { SettingsView } from "./SettingsView";
@@ -59,7 +59,7 @@ export function App() {
         )}
         {route.view === "home" && <Home go={go} />}
         {route.view === "module" &&
-          (route.id === "projects" ? <ProjectsView go={go} /> : route.id === "journal" ? <JournalList go={go} /> : (SHOW_APP_LISTS ? <ModuleView key={route.id} moduleId={route.id} go={go} /> : <BlankApp key={route.id} moduleId={route.id} />))}
+          (route.id === "projects" ? <ProjectsView go={go} /> : route.id === "journal" ? <JournalList go={go} /> : (SHOW_APP_LISTS || LIST_APPS.has(route.id) ? <ModuleView key={route.id} moduleId={route.id} go={go} /> : <BlankApp key={route.id} moduleId={route.id} />))}
         {route.view === "item" && renderItem(route.id, route.page === "details")}
         {route.view === "settings" && <SettingsView />}
       </main>

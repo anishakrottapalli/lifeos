@@ -6,6 +6,9 @@ import { useStore } from "./hooks";
  */
 export const SHOW_APP_LISTS = false;
 
+/** Apps that already have a screen worth using (a plain list) while the rest are blank. */
+export const LIST_APPS = new Set(["courses"]);
+
 export function BlankApp({ moduleId }: { moduleId: string }) {
   const store = useStore();
   const mod = store.module(moduleId);

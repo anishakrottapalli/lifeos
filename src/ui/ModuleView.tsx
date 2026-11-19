@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { displayValue, timeAgo, useStore, type Route } from "./hooks";
 import { FieldEditor } from "./FieldEditor";
 import { fileName } from "../core/paths";
+import { NOTION_COURSES } from "../core/notion-courses";
 
 export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) => void }) {
   const store = useStore();
@@ -24,6 +25,18 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
   );
   const columns = mod.fields.slice(0, 3);
 
+  const toImport =
+    moduleId === "courses" ? NOTION_COURSES.filter((c) => !all.some((i) => i.title.trim().toLowerCase() === c.title.trim().toLowerCase())).length : 0;
+  const [importing, setImporting] = useState(false);
+  async function importCourses() {
+    setImporting(true);
+    try {
+      await store.importCourses(NOTION_COURSES);
+    } finally {
+      setImporting(false);
+    }
+  }
+
   async function add() {
     const item = await store.createItem(moduleId, "Untitled", folder);
     go({ view: "item", id: item.id });
@@ -40,6 +53,11 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
             <button onClick={() => store.storage.mkdir(mod.folder).then(() => store.storage.reveal(mod.folder))}>
               Show in Finder
             </button>
+            {moduleId === "courses" && toImport > 0 && (
+              <button onClick={importCourses} disabled={importing} title="One-time: bring in the courses from your Notion page">
+                {importing ? "Importing…" : `Import my Notion courses (${toImport})`}
+              </button>
+            )}
             {docs && <button onClick={() => go({ view: "item", id: docs.id })}>Docs</button>}
             <button onClick={() => setEditingFields(true)}>Fields</button>
             <button className="primary" onClick={add}>

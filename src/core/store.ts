@@ -9,6 +9,7 @@ import { LifeIndex } from "./index";
 import { serializeItem } from "./notes";
 import { dateFromName, mediaLine } from "./journal";
 import { parseNote } from "./notability";
+import type { NotionCourse } from "./notion-courses";
 import { newId } from "./ids";
 import {
   ALL_PART_KEYS,
@@ -669,6 +670,28 @@ export class LifeStore {
       await this.storage.renameDir(dir, target);
       for (const p of [...this.cache.keys()]) if (p.startsWith(dir + "/")) this.cache.delete(p);
       await this.rescanNow();
+    });
+  }
+
+  /** One-time: add the courses copied from Notion as files in Knowledge/Courses. Titles already there are skipped. */
+  async importCourses(courses: NotionCourse[]): Promise<{ added: number; skipped: number }> {
+    return this.run(async () => {
+      const mod = this.module("courses");
+      if (!mod) throw new Error("The Courses app isn't available.");
+      const have = new Set(this.index.inModule("courses").map((i) => i.title.trim().toLowerCase()));
+      let added = 0;
+      for (const c of courses) {
+        if (have.has(c.title.trim().toLowerCase())) continue;
+        const path = join(mod.folder, uniqueName(safeName(c.title), ".md", this.taken(mod.folder)));
+        const body = c.parts?.length ? `## Parts\n\n${c.parts.map((p, i) => `${i + 1}. ${p}`).join("\n")}\n` : "";
+        const item = this.blankItem(mod.id, "", c.title, path, body, "");
+        item.fields = { ...(c.provider ? { Provider: c.provider } : {}), ...(c.instructor ? { Instructor: c.instructor } : {}), Status: c.status };
+        await this.writeNote(path, serializeItem(item, mod));
+        this.index.entries.push({ path, mtime: Date.now(), size: 0 });
+        added++;
+      }
+      await this.rescanNow();
+      return { added, skipped: courses.length - added };
     });
   }
 
