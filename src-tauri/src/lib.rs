@@ -291,6 +291,15 @@ fn write_new(root: &Path, rel: &str, data: &[u8]) -> Result<(), String> {
     fs::rename(&tmp, &p).map_err(err)
 }
 
+/// Read a file inside LifeOS as raw bytes (used to open Notability .note files).
+#[tauri::command]
+fn read_bytes(state: State<AppState>, path: String) -> Result<tauri::ipc::Response, String> {
+    let root = root_of(&state)?;
+    let p = safe_join(&root, &path)?;
+    let data = fs::read(p).map_err(err)?;
+    Ok(tauri::ipc::Response::new(data))
+}
+
 /// Save a pasted picture (or any bytes) as a new file. The bytes are the request body and the
 /// path (relative to the LifeOS folder) is in the "x-path" header, percent-encoded.
 #[tauri::command]
@@ -370,6 +379,7 @@ pub fn run() {
             make_dir,
             import_file,
             write_bytes,
+            read_bytes,
             full_path,
             open_in_os,
             reveal_in_finder

@@ -7,6 +7,8 @@ import type { Storage } from "./storage";
 import { DEFAULT_MODULES, applyOverrides, type ModuleOverrides } from "./modules";
 import { LifeIndex } from "./index";
 import { serializeItem } from "./notes";
+import { dateFromName, mediaLine } from "./journal";
+import { parseNote } from "./notability";
 import { newId } from "./ids";
 import {
   ALL_PART_KEYS,
@@ -520,17 +522,98 @@ export class LifeStore {
   /** The day's text page, "Journal/2026-11-11/2026-11-11.md". Makes the day if it isn't there yet. */
   async openJournalDay(date: string): Promise<Item> {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("Pick a date.");
+    return this.run(() => this.openDayNow(date));
+  }
+
+  /** A day (named by its date) or, for notes with no date in their title, an entry named by its title. */
+  private async openDayNow(date: string): Promise<Item> {
+    const mod = this.module("journal");
+    if (!mod) throw new Error("The Journal app isn't available.");
+    const path = join(mod.folder, date, `${date}.md`);
+    const existing = this.index.byPath.get(path);
+    if (existing) return existing;
+    const item = this.blankItem(mod.id, "", date, path, "", date);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) item.fields = { Date: date };
+    await this.writeNote(path, serializeItem(item, mod));
+    await this.rescanNow();
+    return this.index.items.get(item.id) ?? item;
+  }
+
+  /** For a note with no date in its title: its title as a folder name, "Title 2" if a different entry already has it. */
+  private freeEntryName(title: string, text: string): string {
+    const base = safeName(title);
+    const folder = this.module("journal")?.folder ?? "Journal";
+    for (let n = 1; ; n++) {
+      const name = n === 1 ? base : `${base} ${n}`;
+      const existing = this.index.byPath.get(join(folder, name, `${name}.md`));
+      if (!existing || (text && existing.body.includes(text.slice(0, 200)))) return name;
+    }
+  }
+
+  /**
+   * Bring in Notability entries (.note files). Each one becomes a Journal day: the typed text
+   * becomes the day's writing, and any pictures or recordings become files in the day's folder.
+   * The day comes only from the date in the note's title (e.g. "Oct 4, 2026"); a title with no date is used as the entry's name instead. The .note file itself moves to LifeOS/.trash when it has been read.
+   */
+  async importNoteFiles(absPaths: string[]): Promise<{ imported: number; problems: string[] }> {
     return this.run(async () => {
-      const mod = this.module("journal");
-      if (!mod) throw new Error("The Journal app isn't available.");
-      const path = join(mod.folder, date, `${date}.md`);
-      const existing = this.index.byPath.get(path);
-      if (existing) return existing;
-      const item = this.blankItem(mod.id, "", date, path, "", date);
-      item.fields = { Date: date };
-      await this.writeNote(path, serializeItem(item, mod));
-      await this.rescanNow();
-      return this.index.items.get(item.id) ?? item;
+      let imported = 0;
+      const problems: string[] = [];
+      for (const abs of absPaths) {
+        const orig = abs.split(/[\\/]/).pop() || "note";
+        if (extName(orig).toLowerCase() !== ".note") {
+          problems.push(`${orig}: not a Notability .note file, left where it is`);
+          continue;
+        }
+        // Move it into LifeOS first (nothing outside the folder is ever read), then read it there.
+        const staged = join("Journal/.import", uniqueName(safeName(stripExt(orig)), ".note", this.taken("Journal/.import")));
+        await this.storage.importFile(abs, staged);
+        this.index.entries.push({ path: staged, mtime: Date.now(), size: 0 });
+        try {
+          const bytes = await this.storage.readBytes(staged);
+          if (!bytes) throw new Error("couldn't read the file");
+          const note = await parseNote(bytes);
+          // The day is only ever the date written in the note's title (other dates, like when the
+          // file was made, can be a different day). With no date in the title, the title is the name.
+          const date = dateFromName(note.title) || this.freeEntryName(note.title || stripExt(orig), note.text.trim());
+          if (!note.text.trim() && note.files.length === 0) throw new Error("it has no typed text or pictures (handwriting can't be turned into text)");
+          const day = await this.openDayNow(date);
+          const dir = dirName(day.path);
+          let fresh = this.index.items.get(day.id) ?? day;
+          const already = note.text.trim() && fresh.body.includes(note.text.trim().slice(0, 200));
+          if (!already) {
+            const parts: string[] = [];
+            if (note.text.trim()) parts.push(note.text.trim());
+            for (const f of note.files) {
+              if (f.kind === "pdf") continue;
+              const name = uniqueName(safeName(stripExt(f.name)), extName(f.name).toLowerCase(), this.taken(dir));
+              await this.storage.writeBytes(join(dir, name), f.data);
+              this.index.entries.push({ path: join(dir, name), mtime: Date.now(), size: f.data.length });
+              parts.push(mediaLine(name));
+            }
+            for (const f of note.files) {
+              if (f.kind !== "pdf") continue;
+              const name = uniqueName(safeName(stripExt(f.name)), ".pdf", this.taken(dir));
+              await this.storage.writeBytes(join(dir, name), f.data);
+              this.index.entries.push({ path: join(dir, name), mtime: Date.now(), size: f.data.length });
+            }
+            const old = fresh.body.trimEnd();
+            await this.saveNow({ ...fresh, body: [old, ...parts].filter(Boolean).join("\n\n") + "\n" }, false);
+            fresh = this.index.items.get(day.id) ?? fresh;
+          }
+          const stamp = nowStamp().replace(/[:T]/g, "-");
+          let trash = join(".trash", stamp, staged);
+          for (let n = 2; await this.storage.exists(trash); n++) trash = join(".trash", stamp, `${stripExt(staged)} ${n}.note`);
+          await this.storage.move(staged, trash);
+          await this.rescanNow();
+          if (already) problems.push(`${orig}: already in the Journal (${date}), not added twice`);
+          else imported++;
+        } catch (e) {
+          const why = e instanceof Error ? e.message : String(e);
+          problems.push(`${orig}: ${why}. It's in LifeOS/Journal/.import if you need it back`);
+        }
+      }
+      return { imported, problems };
     });
   }
 

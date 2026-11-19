@@ -432,3 +432,80 @@ describe("pasted journal pictures", () => {
     expect(again).not.toBe(name); // never overwrites
   });
 });
+
+const NOTE_B64 = "UEsDBBQAAAAAAEGlc12+d+ImeQEAAHkBAAAZAAAAT2N0IDQsIDIwMjYvU2Vzc2lvbi5wbGlzdGJwbGlzdDAw1AECAwQFBhkcWSRhcmNoaXZlclgkb2JqZWN0c1QkdG9wWCR2ZXJzaW9uXxAPTlNLZXllZEFyY2hpdmVypgcICw4RFlUkbnVsbNEJClhyaWNoVGV4dIAC0QwNXxAZTkJBdHRyaWJ1dGVkQmFja2luZ1N0cmluZ4AD0Q8QXxAiTkJBdHRyaWJ1dGVkQmFja2luZ1N0cmluZ0NvZGluZ0tleYAE0hITFBVZc3RyaW5nS2V5XHN1YlJhbmdlc0tleYAFgADRFxhYTlMuYnl0ZXNPEDdEZWFyIGRpYXJ5LgpUb2RheSB3YXMgZ29vZCAocmVhbGx5KS4KClNlY29uZCBwYXJhZ3JhcGgu0RobVHJvb3SAARIAAYagAAgAEQAbACQAKQAyAEQASwBRAFQAXQBfAGIAfgCAAIMAqACqAK8AuQDGAMgAygDNANYBEAETARgBGgAAAAAAAAIBAAAAAAAAAB0AAAAAAAAAAAAAAAAAAAEfUEsDBBQAAAAAAEGlc10+verH2wAAANsAAAAaAAAAT2N0IDQsIDIwMjYvbWV0YWRhdGEucGxpc3RicGxpc3QwMNQBAgMEBQYRFFkkYXJjaGl2ZXJYJG9iamVjdHNUJHRvcFgkdmVyc2lvbl8QD05TS2V5ZWRBcmNoaXZlcqQHCA0OVSRudWxs0gkKCwxfEBNub3RlQ3JlYXRpb25EYXRlS2V5WG5vdGVOYW1lgAOAAltPY3QgNCwgMjAyNtEPEFdOUy50aW1lI0HIOmVlwAAA0RITVHJvb3SAARIAAYagCBEbJCkyRElPVGpzdXeDho6Xmp+hAAAAAAAAAQEAAAAAAAAAFQAAAAAAAAAAAAAAAAAAAKZQSwMEFAAAAAAAQaVzXUcYGtsHAAAABwAAAB4AAABPY3QgNCwgMjAyNi9JbWFnZXMvcGljIG9uZS5wbmdQTkdEQVRBUEsDBBQAAAAAAEGlc10l9CnvBQAAAAUAAAAeAAAAT2N0IDQsIDIwMjYvUmVjb3JkaW5ncy9yZWMubTRhQVVESU9QSwMEFAAAAAAAQaVzXYMW3IwBAAAAAQAAACQAAABPY3QgNCwgMjAyNi9SZWNvcmRpbmdzL2xpYnJhcnkucGxpc3R4UEsBAhQDFAAAAAAAQaVzXb534iZ5AQAAeQEAABkAAAAAAAAAAAAAAIABAAAAAE9jdCA0LCAyMDI2L1Nlc3Npb24ucGxpc3RQSwECFAMUAAAAAABBpXNdPr3qx9sAAADbAAAAGgAAAAAAAAAAAAAAgAGwAQAAT2N0IDQsIDIwMjYvbWV0YWRhdGEucGxpc3RQSwECFAMUAAAAAABBpXNdRxga2wcAAAAHAAAAHgAAAAAAAAAAAAAAgAHDAgAAT2N0IDQsIDIwMjYvSW1hZ2VzL3BpYyBvbmUucG5nUEsBAhQDFAAAAAAAQaVzXSX0Ke8FAAAABQAAAB4AAAAAAAAAAAAAAIABBgMAAE9jdCA0LCAyMDI2L1JlY29yZGluZ3MvcmVjLm00YVBLAQIUAxQAAAAAAEGlc12DFtyMAQAAAAEAAAAkAAAAAAAAAAAAAACAAUcDAABPY3QgNCwgMjAyNi9SZWNvcmRpbmdzL2xpYnJhcnkucGxpc3RQSwUGAAAAAAUABQB5AQAAigMAAAAA";
+const noteBinary = () => atob(NOTE_B64);
+
+describe("importing Notability notes", () => {
+  it("reads the text, date, pictures and recordings out of a .note file", async () => {
+    const { parseNote } = await import("./notability");
+    const bytes = Uint8Array.from(noteBinary(), (c) => c.charCodeAt(0));
+    const note = await parseNote(bytes);
+    expect(note.title).toBe("Oct 4, 2026");
+    expect(note.created).toMatch(/^2026-10-0[56]$/);
+    expect(note.text).toBe("Dear diary.\nToday was good (really).\n\nSecond paragraph.");
+    expect(note.files.map((f) => [f.kind, f.name])).toEqual([["image", "pic one.png"], ["audio", "rec.m4a"]]);
+  });
+
+  it("makes a day from the title's date, keeps pictures and recordings as files, trashes the .note", async () => {
+    const { mem, store } = await fresh();
+    mem.external.set("/Users/you/Desktop/Oct 4, 2026.note", noteBinary());
+    mem.external.set("/Users/you/Desktop/Readme.txt", "hi");
+    const r = await store.importNoteFiles(["/Users/you/Desktop/Oct 4, 2026.note", "/Users/you/Desktop/Readme.txt"]);
+    expect(r.imported).toBe(1);
+    expect(r.problems).toEqual(["Readme.txt: not a Notability .note file, left where it is"]);
+    const day = store.index.byPath.get("Journal/2026-10-04/2026-10-04.md")!;
+    expect(day.body).toContain("Dear diary.\nToday was good (really).");
+    expect(day.body).toContain("![](pic%20one.png)");
+    expect(day.body).toContain("![](rec.m4a)");
+    expect(mem.files.has("Journal/2026-10-04/pic one.png")).toBe(true);
+    expect(mem.files.has("Journal/2026-10-04/rec.m4a")).toBe(true);
+    expect([...mem.files.keys()].some((p) => p.startsWith(".trash/") && p.endsWith("Oct 4, 2026.note"))).toBe(true);
+    expect(mem.files.has("Journal/.import/Oct 4, 2026.note")).toBe(false);
+    // importing the same note again doesn't repeat it
+    mem.external.set("/Users/you/Desktop/Oct 4, 2026.note", noteBinary());
+    const again = await store.importNoteFiles(["/Users/you/Desktop/Oct 4, 2026.note"]);
+    expect(again.imported).toBe(0);
+    expect(again.problems[0]).toContain("already in the Journal");
+  });
+
+  it("takes the date only from the note's title, never the file name or creation date", async () => {
+    const { mem, store } = await fresh();
+    // same note, but the file is named with a different date and the title has to decide
+    mem.external.set("/Users/you/Desktop/2020-01-01 export.note", noteBinary());
+    await store.importNoteFiles(["/Users/you/Desktop/2020-01-01 export.note"]);
+    expect(store.index.byPath.has("Journal/2026-10-04/2026-10-04.md")).toBe(true);
+    expect(store.index.byPath.has("Journal/2020-01-01/2020-01-01.md")).toBe(false);
+    expect(store.index.byPath.has("Journal/2026-10-06/2026-10-06.md")).toBe(false);
+  });
+
+  it("a note whose title has no date is added under its title; different notes with one title don't merge", async () => {
+    const { mem, store } = await fresh();
+    mem.external.set("/Users/you/Desktop/a.note", atob("UEsDBBQAAAAAANSlc101BcTxJQEAACUBAAAYAAAARGVhciBkaWFyeS9TZXNzaW9uLnBsaXN0YnBsaXN0MDDUAQIDBAUGFxpZJGFyY2hpdmVyWCRvYmplY3RzVCR0b3BYJHZlcnNpb25fEA9OU0tleWVkQXJjaGl2ZXKmBwgLDhEUVSRudWxs0QkKWHJpY2hUZXh0gALRDA1fEBlOQkF0dHJpYnV0ZWRCYWNraW5nU3RyaW5ngAPRDxBfECJOQkF0dHJpYnV0ZWRCYWNraW5nU3RyaW5nQ29kaW5nS2V5gATREhNZc3RyaW5nS2V5gAXRFRZYTlMuYnl0ZXNPEBNXb3JkcyB3aXRoIG5vIGRhdGUu0RgZVHJvb3SAARIAAYagCBEbJCkyREtRVF1fYn6Ag6iqrbe5vMXb3uPlAAAAAAAAAQEAAAAAAAAAGwAAAAAAAAAAAAAAAAAAAOpQSwMEFAAAAAAA1KVzXc3AW97aAAAA2gAAABkAAABEZWFyIGRpYXJ5L21ldGFkYXRhLnBsaXN0YnBsaXN0MDDUAQIDBAUGERRZJGFyY2hpdmVyWCRvYmplY3RzVCR0b3BYJHZlcnNpb25fEA9OU0tleWVkQXJjaGl2ZXKkBwgNDlUkbnVsbNIJCgsMXxATbm90ZUNyZWF0aW9uRGF0ZUtleVhub3RlTmFtZYADgAJaRGVhciBkaWFyedEPEFdOUy50aW1lI0HIOmVlwAAA0RITVHJvb3SAARIAAYagCBEbJCkyRElPVGpzdXeChY2WmZ6gAAAAAAAAAQEAAAAAAAAAFQAAAAAAAAAAAAAAAAAAAKVQSwECFAMUAAAAAADUpXNdNQXE8SUBAAAlAQAAGAAAAAAAAAAAAAAAgAEAAAAARGVhciBkaWFyeS9TZXNzaW9uLnBsaXN0UEsBAhQDFAAAAAAA1KVzXc3AW97aAAAA2gAAABkAAAAAAAAAAAAAAIABWwEAAERlYXIgZGlhcnkvbWV0YWRhdGEucGxpc3RQSwUGAAAAAAIAAgCNAAAAbAIAAAAA"));
+    const r = await store.importNoteFiles(["/Users/you/Desktop/a.note"]);
+    expect(r).toEqual({ imported: 1, problems: [] });
+    const entry = store.index.byPath.get("Journal/Dear diary/Dear diary.md")!;
+    expect(entry.body).toContain("Words with no date.");
+    expect(entry.title).toBe("Dear diary");
+    mem.external.set("/Users/you/Desktop/b.note", atob("UEsDBBQAAAAAANSlc128sQpFLQEAAC0BAAAYAAAARGVhciBkaWFyeS9TZXNzaW9uLnBsaXN0YnBsaXN0MDDUAQIDBAUGFxpZJGFyY2hpdmVyWCRvYmplY3RzVCR0b3BYJHZlcnNpb25fEA9OU0tleWVkQXJjaGl2ZXKmBwgLDhEUVSRudWxs0QkKWHJpY2hUZXh0gALRDA1fEBlOQkF0dHJpYnV0ZWRCYWNraW5nU3RyaW5ngAPRDxBfECJOQkF0dHJpYnV0ZWRCYWNraW5nU3RyaW5nQ29kaW5nS2V5gATREhNZc3RyaW5nS2V5gAXRFRZYTlMuYnl0ZXNPEBtBIGRpZmZlcmVudCBlbnRyeSBlbnRpcmVseS7RGBlUcm9vdIABEgABhqAIERskKTJES1FUXV9ifoCDqKqtt7m8xePm6+0AAAAAAAABAQAAAAAAAAAbAAAAAAAAAAAAAAAAAAAA8lBLAwQUAAAAAADUpXNdzcBb3toAAADaAAAAGQAAAERlYXIgZGlhcnkvbWV0YWRhdGEucGxpc3RicGxpc3QwMNQBAgMEBQYRFFkkYXJjaGl2ZXJYJG9iamVjdHNUJHRvcFgkdmVyc2lvbl8QD05TS2V5ZWRBcmNoaXZlcqQHCA0OVSRudWxs0gkKCwxfEBNub3RlQ3JlYXRpb25EYXRlS2V5WG5vdGVOYW1lgAOAAlpEZWFyIGRpYXJ50Q8QV05TLnRpbWUjQcg6ZWXAAADREhNUcm9vdIABEgABhqAIERskKTJESU9UanN1d4KFjZaZnqAAAAAAAAABAQAAAAAAAAAVAAAAAAAAAAAAAAAAAAAApVBLAQIUAxQAAAAAANSlc128sQpFLQEAAC0BAAAYAAAAAAAAAAAAAACAAQAAAABEZWFyIGRpYXJ5L1Nlc3Npb24ucGxpc3RQSwECFAMUAAAAAADUpXNdzcBb3toAAADaAAAAGQAAAAAAAAAAAAAAgAFjAQAARGVhciBkaWFyeS9tZXRhZGF0YS5wbGlzdFBLBQYAAAAAAgACAI0AAAB0AgAAAAA="));
+    const second = await store.importNoteFiles(["/Users/you/Desktop/b.note"]);
+    expect(second.imported).toBe(1);
+    expect(store.index.byPath.get("Journal/Dear diary 2/Dear diary 2.md")!.body).toContain("A different entry entirely.");
+    mem.external.set("/Users/you/Desktop/c.note", atob("UEsDBBQAAAAAANSlc101BcTxJQEAACUBAAAYAAAARGVhciBkaWFyeS9TZXNzaW9uLnBsaXN0YnBsaXN0MDDUAQIDBAUGFxpZJGFyY2hpdmVyWCRvYmplY3RzVCR0b3BYJHZlcnNpb25fEA9OU0tleWVkQXJjaGl2ZXKmBwgLDhEUVSRudWxs0QkKWHJpY2hUZXh0gALRDA1fEBlOQkF0dHJpYnV0ZWRCYWNraW5nU3RyaW5ngAPRDxBfECJOQkF0dHJpYnV0ZWRCYWNraW5nU3RyaW5nQ29kaW5nS2V5gATREhNZc3RyaW5nS2V5gAXRFRZYTlMuYnl0ZXNPEBNXb3JkcyB3aXRoIG5vIGRhdGUu0RgZVHJvb3SAARIAAYagCBEbJCkyREtRVF1fYn6Ag6iqrbe5vMXb3uPlAAAAAAAAAQEAAAAAAAAAGwAAAAAAAAAAAAAAAAAAAOpQSwMEFAAAAAAA1KVzXc3AW97aAAAA2gAAABkAAABEZWFyIGRpYXJ5L21ldGFkYXRhLnBsaXN0YnBsaXN0MDDUAQIDBAUGERRZJGFyY2hpdmVyWCRvYmplY3RzVCR0b3BYJHZlcnNpb25fEA9OU0tleWVkQXJjaGl2ZXKkBwgNDlUkbnVsbNIJCgsMXxATbm90ZUNyZWF0aW9uRGF0ZUtleVhub3RlTmFtZYADgAJaRGVhciBkaWFyedEPEFdOUy50aW1lI0HIOmVlwAAA0RITVHJvb3SAARIAAYagCBEbJCkyRElPVGpzdXeChY2WmZ6gAAAAAAAAAQEAAAAAAAAAFQAAAAAAAAAAAAAAAAAAAKVQSwECFAMUAAAAAADUpXNdNQXE8SUBAAAlAQAAGAAAAAAAAAAAAAAAgAEAAAAARGVhciBkaWFyeS9TZXNzaW9uLnBsaXN0UEsBAhQDFAAAAAAA1KVzXc3AW97aAAAA2gAAABkAAAAAAAAAAAAAAIABWwEAAERlYXIgZGlhcnkvbWV0YWRhdGEucGxpc3RQSwUGAAAAAAIAAgCNAAAAbAIAAAAA"));
+    const again = await store.importNoteFiles(["/Users/you/Desktop/c.note"]);
+    expect(again.imported).toBe(0);
+    expect(again.problems[0]).toContain("already in the Journal");
+    expect(store.index.byPath.has("Journal/Dear diary 3/Dear diary 3.md")).toBe(false);
+  });
+
+  it("reads dates from file names", async () => {
+    const { dateFromName } = await import("./journal");
+    expect(dateFromName("2025-03-14 Journal")).toBe("2025-03-14");
+    expect(dateFromName("March 14, 2025")).toBe("2025-03-14");
+    expect(dateFromName("Oct 4, 2026")).toBe("2026-10-04");
+    expect(dateFromName("14 March 2025 - notes")).toBe("2025-03-14");
+    expect(dateFromName("3/14/2025")).toBe("2025-03-14");
+    expect(dateFromName("Dear diary")).toBe("");
+    expect(dateFromName("2025-13-40")).toBe("");
+  });
+});
