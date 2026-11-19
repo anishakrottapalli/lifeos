@@ -724,6 +724,78 @@ export class LifeStore {
     });
   }
 
+  /**
+   * Bring Notability notes (.note files) and PDFs into a course. A PDF is simply added to the course's files. For each note: the typed text is added to the
+   * course's Notes under the note's title, its pictures and recordings become the course's files, and
+   * the original .note file is kept in the course's files too. The course gets its own folder
+   * ("<Name>/<Name>.md") so everything sits together in Finder.
+   */
+  async importCourseNotes(course: Item, absPaths: string[]): Promise<{ imported: number; problems: string[] }> {
+    return this.run(async () => {
+      const mod = this.projectsLike("courses");
+      const staging = join(mod.folder, ".import");
+      let imported = 0;
+      const problems: string[] = [];
+      for (const abs of absPaths) {
+        const orig = abs.split(/[\\/]/).pop() || "note";
+        const ext = extName(orig).toLowerCase();
+        if (ext === ".pdf") {
+          // A PDF is kept as it is, in the course's files.
+          let c = this.index.items.get(course.id) ?? course;
+          if (!this.index.isProgram(c) && !this.index.courseParent(c)) c = await this.makeProgramNow(c);
+          const dir = dirName(c.path);
+          const name = uniqueName(safeName(stripExt(orig)), ".pdf", this.taken(dir));
+          await this.storage.importFile(abs, join(dir, name));
+          this.index.entries.push({ path: join(dir, name), mtime: Date.now(), size: 0 });
+          await this.saveNow({ ...c, files: [...c.files, name] }, false);
+          imported++;
+          continue;
+        }
+        if (ext !== ".note") {
+          problems.push(`${orig}: not a Notability .note file or a PDF, left where it is`);
+          continue;
+        }
+        // Move it into LifeOS first (nothing outside the folder is ever read), then read it there.
+        const staged = join(staging, uniqueName(safeName(stripExt(orig)), ".note", this.taken(staging)));
+        await this.storage.importFile(abs, staged);
+        this.index.entries.push({ path: staged, mtime: Date.now(), size: 0 });
+        try {
+          const bytes = await this.storage.readBytes(staged);
+          if (!bytes) throw new Error("couldn't read the file");
+          const note = await parseNote(bytes);
+          let c = this.index.items.get(course.id) ?? course;
+          if (!this.index.isProgram(c) && !this.index.courseParent(c)) c = await this.makeProgramNow(c);
+          const dir = dirName(c.path);
+          const heading = note.title.trim() || stripExt(orig);
+          const text = note.text.trim();
+          const files = [...c.files];
+          const add = async (name: string, ext: string, data: Uint8Array) => {
+            const final = uniqueName(safeName(stripExt(name)), ext, this.taken(dir));
+            await this.storage.writeBytes(join(dir, final), data);
+            this.index.entries.push({ path: join(dir, final), mtime: Date.now(), size: data.length });
+            files.push(final);
+          };
+          const already = text && c.body.includes(text.slice(0, 200));
+          if (!already) for (const f of note.files) await add(f.name, extName(f.name).toLowerCase(), f.data);
+          // The original note is kept with the course.
+          const keep = uniqueName(safeName(heading), ".note", this.taken(dir));
+          await this.storage.move(staged, join(dir, keep));
+          this.index.entries.push({ path: join(dir, keep), mtime: Date.now(), size: bytes.length });
+          files.push(keep);
+          const body = already || !text ? c.body : [c.body.trimEnd(), `## ${heading}`, text].filter(Boolean).join("\n\n") + "\n";
+          await this.saveNow({ ...c, body, files }, false);
+          if (already) problems.push(`${orig}: its text was already in this course's notes, so only the .note file was added to Files`);
+          else if (!text) problems.push(`${orig}: no typed text (handwriting can't be turned into text); the original is in Files`);
+          else imported++;
+        } catch (e) {
+          const why = e instanceof Error ? e.message : String(e);
+          problems.push(`${orig}: ${why}. It's in LifeOS/${staging} if you need it back`);
+        }
+      }
+      return { imported, problems };
+    });
+  }
+
   /** Is this Notion course fully in LifeOS already (and, for a program, with its parts as separate courses)? */
   private courseDone(c: NotionCourse): boolean {
     const existing = this.index.inModule("courses").find((i) => i.title.trim().toLowerCase() === c.title.trim().toLowerCase() && !this.index.courseParent(i));
