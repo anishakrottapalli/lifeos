@@ -149,16 +149,53 @@ export class LifeIndex {
   // ---------- courses ----------
   // A course with things inside it (a program's courses, or a course's lessons) is a folder:
   // "<Name>/<Name>.md" with its children beside it (a lesson is a folder of its own, too).
-  isProgram(item: Item): boolean {
+  isCourseFolder(item: Item): boolean {
     const mod = this.module("courses");
     if (!mod || item.module !== "courses") return false;
     const dir = dirName(item.path);
     return dir.startsWith(mod.folder + "/") && stripExt(fileName(item.path)) === fileName(dir);
   }
 
+  /**
+   * A program (like "UX Certificate") is only a folder: Courses/<Name>/ with course folders inside and no
+   * page of its own. This is the program folder an item sits in, if any.
+   */
+  programOf(item: Item): string | undefined {
+    const mod = this.module("courses");
+    if (!mod || item.module !== "courses") return undefined;
+    const dir = dirName(item.path);
+    const p = this.isCourseFolder(item) ? dirName(dir) : dir;
+    if (dirName(p) !== mod.folder) return undefined;
+    if (this.byPath.has(join(p, `${fileName(p)}.md`))) return undefined;
+    return p;
+  }
+
+  /** Every program folder, A to Z. */
+  programs(): string[] {
+    const out = new Set<string>();
+    for (const i of this.items.values()) {
+      const p = this.programOf(i);
+      if (p) out.add(p);
+    }
+    return [...out].sort((a, b) => fileName(a).localeCompare(fileName(b)));
+  }
+
+  /** The courses inside a program folder, in the order they were added. */
+  programCourses(dir: string): Item[] {
+    const order = (i: Item) => (Number(i.fields["Part"]) > 0 ? Number(i.fields["Part"]) : 9999);
+    return [...this.items.values()]
+      .filter((i) => this.programOf(i) === dir)
+      .sort((a, b) => order(a) - order(b) || a.title.localeCompare(b.title));
+  }
+
+  /** Is this on the main Courses list (not inside a program or another course)? */
+  isTopLevelCourse(item: Item): boolean {
+    return !this.courseParent(item) && !this.programOf(item);
+  }
+
   /** What sits directly inside a course: its courses and lessons, in the order they were added. */
   courseParts(program: Item): Item[] {
-    if (!this.isProgram(program)) return [];
+    if (!this.isCourseFolder(program)) return [];
     const dir = dirName(program.path);
     const order = (i: Item) => (Number(i.fields["Part"]) > 0 ? Number(i.fields["Part"]) : 9999);
     return [...this.items.values()]
@@ -166,7 +203,7 @@ export class LifeIndex {
         (i) =>
           i.module === "courses" &&
           i.id !== program.id &&
-          (dirName(i.path) === dir || (this.isProgram(i) && dirName(dirName(i.path)) === dir)),
+          (dirName(i.path) === dir || (this.isCourseFolder(i) && dirName(dirName(i.path)) === dir)),
       )
       .sort((a, b) => order(a) - order(b) || a.title.localeCompare(b.title));
   }
@@ -176,7 +213,7 @@ export class LifeIndex {
     const mod = this.module("courses");
     if (!mod || item.module !== "courses") return undefined;
     // A folder's own page belongs to the folder above it; any other page belongs to its own folder.
-    const dir = this.isProgram(item) ? dirName(dirName(item.path)) : dirName(item.path);
+    const dir = this.isCourseFolder(item) ? dirName(dirName(item.path)) : dirName(item.path);
     if (!dir.startsWith(mod.folder + "/")) return undefined;
     return this.byPath.get(join(dir, `${fileName(dir)}.md`));
   }

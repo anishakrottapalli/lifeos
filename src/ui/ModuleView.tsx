@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { displayValue, timeAgo, useStore, type Route } from "./hooks";
 import { FieldEditor } from "./FieldEditor";
+import { Modal } from "./Modal";
 import { fileName } from "../core/paths";
 import { NOTION_COURSES } from "../core/notion-courses";
 
@@ -13,7 +14,7 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
   const [editingFields, setEditingFields] = useState(false);
 
   // In Courses, the courses inside a program are listed on the program's page, not here.
-  const all = store.index.inModule(moduleId).filter((i) => !store.index.courseParent(i));
+  const all = store.index.inModule(moduleId).filter((i) => store.index.isTopLevelCourse(i) || moduleId !== "courses");
   const tags = useMemo(() => [...new Set(all.flatMap((i) => i.tags))].sort(), [all]);
   const folders = store.index.subfolders(moduleId);
   const loose = store.index.unfiled(moduleId);
@@ -25,6 +26,22 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
     (i) => (!tag || i.tags.includes(tag)) && (!folder || i.folder === folder || i.folder.startsWith(folder + "/")),
   );
   const columns = mod.fields.slice(0, 3);
+  // In Courses, a program (a folder of courses) is a row too.
+  const programRows =
+    moduleId === "courses" && !tag && !folder
+      ? store.index.programs().filter((d) => !filter || fileName(d).toLowerCase().includes(filter.toLowerCase()))
+      : [];
+  const [newProgram, setNewProgram] = useState(false);
+  const [progName, setProgName] = useState("");
+  const [firstCourse, setFirstCourse] = useState("");
+  async function createProgram() {
+    if (!progName.trim() || !firstCourse.trim()) return;
+    const made = await store.createProgram(progName.trim(), firstCourse.trim());
+    setNewProgram(false);
+    setProgName("");
+    setFirstCourse("");
+    go({ view: "item", id: made.id });
+  }
 
   const toImport =
     moduleId === "courses" ? store.coursesLeftToImport(NOTION_COURSES) : 0;
@@ -57,6 +74,11 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
             {moduleId === "courses" && toImport > 0 && (
               <button onClick={importCourses} disabled={importing} title="One-time: bring in the courses from your Notion page">
                 {importing ? "Importing…" : `Import my Notion courses (${toImport})`}
+              </button>
+            )}
+            {moduleId === "courses" && (
+              <button onClick={() => setNewProgram(true)} title="A program is a folder that holds several courses, like a certificate">
+                + New program
               </button>
             )}
             {docs && <button onClick={() => go({ view: "item", id: docs.id })}>Docs</button>}
@@ -97,7 +119,7 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
         </div>
       )}
 
-      {shown.length === 0 ? (
+      {shown.length === 0 && programRows.length === 0 ? (
         <div className="empty">
           <p>{all.length ? "Nothing matches." : `No items in ${mod.name} yet.`}</p>
           {!all.length && (
@@ -119,6 +141,15 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
             </tr>
           </thead>
           <tbody>
+            {programRows.map((d) => (
+              <tr key={d} onClick={() => go({ view: "program", dir: d })}>
+                <td className="strong">🗂 {fileName(d)}</td>
+                <td className="muted" colSpan={columns.length + 1}>
+                  Program · {store.index.programCourses(d).length} courses
+                </td>
+                <td className="muted small" />
+              </tr>
+            ))}
             {shown.map((i) => (
               <tr key={i.id} onClick={() => go({ view: "item", id: i.id })}>
                 <td className="strong">
@@ -165,6 +196,38 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
       )}
 
       {editingFields && <FieldEditor moduleId={moduleId} close={() => setEditingFields(false)} />}
+
+      {newProgram && (
+        <Modal close={() => setNewProgram(false)}>
+          <h2>New program</h2>
+          <p className="muted small">A program is a folder that holds several courses. It needs its first course to exist.</p>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              createProgram();
+            }}
+          >
+            <div className="form-rows">
+              <label className="field">
+                <span className="field-label">Program name</span>
+                <input autoFocus value={progName} onChange={(e) => setProgName(e.target.value)} placeholder="e.g. UX Certificate" />
+              </label>
+              <label className="field">
+                <span className="field-label">First course</span>
+                <input value={firstCourse} onChange={(e) => setFirstCourse(e.target.value)} placeholder="e.g. Intro to UX Design" />
+              </label>
+            </div>
+            <div className="modal-actions">
+              <button type="button" onClick={() => setNewProgram(false)}>
+                Cancel
+              </button>
+              <button className="primary" type="submit" disabled={!progName.trim() || !firstCourse.trim()}>
+                Create
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 }

@@ -511,52 +511,95 @@ describe("importing Notability notes", () => {
 });
 
 describe("moving courses over from Notion", () => {
-  it("adds each course, with a program's courses as separate pages inside its folder, and doesn't repeat itself", async () => {
+  it("a program is only a folder, each of its courses is a folder inside it, and nothing repeats", async () => {
     const { NOTION_COURSES } = await import("./notion-courses");
     const { mem, store } = await fresh();
     expect(store.coursesLeftToImport(NOTION_COURSES)).toBe(23);
     const r = await store.importCourses(NOTION_COURSES);
     expect(r.added).toBe(23);
     expect(store.coursesLeftToImport(NOTION_COURSES)).toBe(0);
-    const pm = store.index.inModule("courses").find((i) => i.title === "Become a Product Manager")!;
-    expect(pm.path).toBe("Knowledge/Courses/Become a Product Manager/Become a Product Manager.md");
-    const parts = store.index.courseParts(pm);
-    expect(parts).toHaveLength(8);
-    expect(parts[0].title).toBe("Product Management First Steps");
-    expect(parts[0].fields["Instructor"]).toBe("Doug Winne");
-    expect(parts[7].title).toBe("Technology for Product Managers");
-    expect(parts[2].fields["Instructor"]).toBe("Eldad Persky and Teg Grenager");
-    expect(mem.files.has("Knowledge/Courses/Become a Product Manager/Product Management First Steps.md")).toBe(true);
-    expect(store.index.courseParent(parts[0])?.id).toBe(pm.id);
-    expect(pm.body).not.toContain("Parts");
+    // no page named after the program inside its folder
+    expect(mem.files.has("Knowledge/Courses/Become a Product Manager/Become a Product Manager.md")).toBe(false);
+    const dir = "Knowledge/Courses/Become a Product Manager";
+    expect(store.index.programs()).toContain(dir);
+    const courses = store.index.programCourses(dir);
+    expect(courses).toHaveLength(8);
+    expect(courses[0].title).toBe("Product Management First Steps");
+    expect(courses[0].path).toBe(`${dir}/Product Management First Steps/Product Management First Steps.md`);
+    expect(courses[0].fields["Instructor"]).toBe("Doug Winne");
+    expect(courses[0].fields["Provider"]).toBe("LinkedIn Learning");
+    expect(courses[2].fields["Instructor"]).toBe("Eldad Persky and Teg Grenager");
+    expect(store.index.isTopLevelCourse(courses[0])).toBe(false);
+    // the main list has the standalone courses (programs are shown as rows from programs())
     expect(mem.files.has("Knowledge/Courses/Adobe Premiere Pro Essentials.md")).toBe(true);
+    const topTitles = store.index.inModule("courses").filter((i) => store.index.isTopLevelCourse(i)).map((i) => i.title);
+    expect(topTitles).not.toContain("Become a Product Manager");
+    expect(store.index.programs().map((d) => d.split("/").pop())).toEqual([
+      "Adobe After Effects",
+      "Become a Product Manager",
+      "IBM Data Science Professional Certificate",
+      "UX Certificate",
+    ]);
     const again = await store.importCourses(NOTION_COURSES);
     expect(again.added).toBe(0);
-    expect(store.index.courseParts(pm)).toHaveLength(8);
+    expect(store.index.programCourses(dir)).toHaveLength(8);
   });
 
-  it("the UX Certificate gets its lessons as folders inside the right courses", async () => {
+  it("the UX Certificate: Intro to UX Design has its own folder, and lessons are folders inside their course", async () => {
     const { NOTION_COURSES } = await import("./notion-courses");
     const { mem, store } = await fresh();
     await store.importCourses(NOTION_COURSES.filter((c) => c.title === "UX Certificate"));
-    const ux = store.index.inModule("courses").find((i) => i.title === "UX Certificate")!;
-    const fe = store.index.courseParts(ux).find((p) => p.title === "Front-End Development")!;
-    expect(fe.path).toBe("Knowledge/Courses/UX Certificate/Front-End Development/Front-End Development.md");
+    const dir = "Knowledge/Courses/UX Certificate";
+    expect(mem.files.has(`${dir}/UX Certificate.md`)).toBe(false);
+    const courses = store.index.programCourses(dir);
+    expect(courses.map((c) => c.title)).toEqual(["Intro to UX Design", "UX Immersion", "Front-End Development"]);
+    expect(courses[0].path).toBe(`${dir}/Intro to UX Design/Intro to UX Design.md`);
+    const fe = courses[2];
     const lessons = store.index.courseParts(fe);
     expect(lessons.map((l) => l.title)).toEqual(["1 - Getting Started with HTML & CSS", "2 - JavaScript & Your Portfolio Site"]);
     expect(lessons.every((l) => l.kind === "lesson")).toBe(true);
-    expect(lessons[0].path).toBe("Knowledge/Courses/UX Certificate/Front-End Development/1 - Getting Started with HTML & CSS/1 - Getting Started with HTML & CSS.md");
+    expect(lessons[0].path).toBe(`${dir}/Front-End Development/1 - Getting Started with HTML & CSS/1 - Getting Started with HTML & CSS.md`);
     expect(store.index.courseParent(lessons[0])?.id).toBe(fe.id);
-    expect(store.index.courseParent(fe)?.id).toBe(ux.id);
-    const im = store.index.courseParts(ux).find((p) => p.title === "UX Immersion")!;
-    expect(store.index.courseParts(im).map((l) => l.title)).toHaveLength(6);
-    // the program lists its courses, not the lessons inside them
-    expect(store.index.courseParts(ux).map((p) => p.title)).toEqual(["Intro to UX Design", "UX Immersion", "Front-End Development"]);
+    expect(store.index.programOf(fe)).toBe(dir);
+    expect(store.index.courseParts(courses[1])).toHaveLength(6);
     expect(store.coursesLeftToImport(NOTION_COURSES.filter((c) => c.title === "UX Certificate"))).toBe(0);
-    // a PDF added to a lesson sits in that lesson's folder
+    // Intro to UX Design has its own files; a PDF added to a lesson sits in that lesson's folder
+    mem.external.set("/Users/you/Desktop/intro.pdf", "PDF");
+    await store.importCourseNotes(courses[0], ["/Users/you/Desktop/intro.pdf"]);
+    expect(mem.files.has(`${dir}/Intro to UX Design/intro.pdf`)).toBe(true);
     mem.external.set("/Users/you/Desktop/slides.pdf", "PDF");
     await store.importCourseNotes(lessons[0], ["/Users/you/Desktop/slides.pdf"]);
-    expect(mem.files.has("Knowledge/Courses/UX Certificate/Front-End Development/1 - Getting Started with HTML & CSS/slides.pdf")).toBe(true);
+    expect(mem.files.has(`${dir}/Front-End Development/1 - Getting Started with HTML & CSS/slides.pdf`)).toBe(true);
+  });
+
+  it("rearranges a program from the earlier layout (a page of its own, plain courses beside it)", async () => {
+    const { NOTION_COURSES } = await import("./notion-courses");
+    const { mem, store } = await fresh();
+    mem.dropFile("Knowledge/Courses/UX Certificate/UX Certificate.md", "---\nid: prog\ntitle: UX Certificate\n---\n");
+    mem.dropFile("Knowledge/Courses/UX Certificate/Intro to UX Design.md", "---\nid: intro\ntitle: Intro to UX Design\nPart: 1\n---\n");
+    await store.rescan();
+    await store.importCourses(NOTION_COURSES.filter((c) => c.title === "UX Certificate"));
+    expect(mem.files.has("Knowledge/Courses/UX Certificate/UX Certificate.md")).toBe(false);
+    expect([...mem.files.keys()].some((p) => p.startsWith(".trash/") && p.endsWith("UX Certificate.md"))).toBe(true);
+    expect(store.index.items.get("intro")!.path).toBe("Knowledge/Courses/UX Certificate/Intro to UX Design/Intro to UX Design.md");
+    expect(store.index.programCourses("Knowledge/Courses/UX Certificate").map((c) => c.title)).toEqual([
+      "Intro to UX Design",
+      "UX Immersion",
+      "Front-End Development",
+    ]);
+  });
+
+  it("a new program, adding a course to it, and renaming it", async () => {
+    const { mem, store } = await fresh();
+    const first = await store.createProgram("Spanish Program", "Spanish 101", "Ms. Lopez");
+    expect(first.path).toBe("Knowledge/Courses/Spanish Program/Spanish 101/Spanish 101.md");
+    expect(mem.files.has("Knowledge/Courses/Spanish Program/Spanish Program.md")).toBe(false);
+    const second = await store.addCourseToProgram("Knowledge/Courses/Spanish Program", "Spanish 102");
+    expect(second.fields["Part"]).toBe(2);
+    const dir = await store.renameProgram("Knowledge/Courses/Spanish Program", "Spanish");
+    expect(dir).toBe("Knowledge/Courses/Spanish");
+    expect(mem.files.has("Knowledge/Courses/Spanish/Spanish 101/Spanish 101.md")).toBe(true);
+    expect(store.index.programCourses(dir).map((c) => c.title)).toEqual(["Spanish 101", "Spanish 102"]);
   });
 
   it("adding a lesson to a course makes it a folder; renaming the course renames its folder with everything inside", async () => {
@@ -570,38 +613,8 @@ describe("moving courses over from Notion", () => {
     expect(mem.files.has("Knowledge/Courses/Spanish Basics/Spanish Basics.md")).toBe(true);
     expect(mem.files.has("Knowledge/Courses/Spanish Basics/Lesson 1/Lesson 1.md")).toBe(true);
     expect(mem.files.has("Knowledge/Courses/Spanish/Spanish.md")).toBe(false);
-    const renamed = store.index.items.get(c.id)!;
-    expect(store.index.courseParts(renamed).map((l) => l.title)).toEqual(["Lesson 1"]);
-  });
-
-  it("upgrades a course imported earlier with a plain Parts list, and keeps its files", async () => {
-    const { NOTION_COURSES } = await import("./notion-courses");
-    const { mem, store } = await fresh();
-    mem.dropFile(
-      "Knowledge/Courses/UX Certificate.md",
-      "---\nid: ux1\ntitle: UX Certificate\nfiles:\n  - syllabus.pdf\nProvider: CareerFoundry\n---\n\n## Parts\n\n1. Intro to UX Design\n2. UX Immersion\n3. Front-End Development\n",
-    );
-    mem.dropFile("Knowledge/Courses/syllabus.pdf", "PDF");
-    await store.rescan();
-    await store.importCourses(NOTION_COURSES.filter((c) => c.title === "UX Certificate"));
-    const ux = store.index.items.get("ux1")!;
-    expect(ux.path).toBe("Knowledge/Courses/UX Certificate/UX Certificate.md");
-    expect(mem.files.has("Knowledge/Courses/UX Certificate/syllabus.pdf")).toBe(true);
-    expect(mem.files.has("Knowledge/Courses/UX Certificate.md")).toBe(false);
-    expect(ux.body).not.toContain("## Parts");
-    expect(ux.fields["Provider"]).toBe("CareerFoundry");
-    expect(store.index.courseParts(ux).map((p) => p.title)).toEqual(["Intro to UX Design", "UX Immersion", "Front-End Development"]);
-  });
-
-  it("adding a course inside a plain course turns it into a program", async () => {
-    const { mem, store } = await fresh();
-    const c = await store.createItem("courses", "Spanish", "", {});
-    const part = await store.addCoursePart(c, "Spanish 101", "Ms. Lopez");
-    expect(part.path).toBe("Knowledge/Courses/Spanish/Spanish 101.md");
-    expect(mem.files.has("Knowledge/Courses/Spanish/Spanish.md")).toBe(true);
-    const next = await store.addCoursePart(store.index.items.get(c.id)!, "Spanish 102");
-    expect(next.fields["Part"]).toBe(2);
-    expect(store.index.courseParts(store.index.items.get(c.id)!).map((p) => p.title)).toEqual(["Spanish 101", "Spanish 102"]);
+    expect(store.index.courseParts(store.index.items.get(c.id)!).map((l) => l.title)).toEqual(["Lesson 1"]);
+    expect(store.index.programs()).toEqual([]);
   });
 });
 
@@ -629,25 +642,14 @@ describe("Notability notes inside a course", () => {
     expect(store.index.items.get(course.id)!.body.match(/Dear diary/g)).toHaveLength(1);
   });
 
-  it("a PDF is kept as it is in the course's files", async () => {
+  it("a note in a lesson goes in that lesson's own folder", async () => {
     const { mem, store } = await fresh();
-    const prog = await store.createItem("courses", "UX Certificate", "", {});
-    const part = await store.addCoursePart(prog, "Intro to UX Design");
-    mem.external.set("/Users/you/Desktop/Week 1 slides.pdf", "PDF");
-    const r = await store.importCourseNotes(part, ["/Users/you/Desktop/Week 1 slides.pdf"]);
-    expect(r).toEqual({ imported: 1, problems: [] });
-    expect(mem.files.has("Knowledge/Courses/UX Certificate/Week 1 slides.pdf")).toBe(true);
-    expect(store.index.items.get(part.id)!.files).toEqual(["Week 1 slides.pdf"]);
-  });
-
-  it("a note inside a program's course goes in that course, next to the others", async () => {
-    const { mem, store } = await fresh();
-    const prog = await store.createItem("courses", "UX Certificate", "", {});
-    const part = await store.addCoursePart(prog, "UX Immersion");
+    const course = await store.createItem("courses", "Spanish", "", {});
+    const lesson = await store.addCourseLesson(course, "Lesson 1");
     mem.external.set("/Users/you/Desktop/Week 1.note", noteBinary());
-    await store.importCourseNotes(part, ["/Users/you/Desktop/Week 1.note"]);
-    expect(mem.files.has("Knowledge/Courses/UX Certificate/Oct 4, 2026.note")).toBe(true);
-    expect(store.index.items.get(part.id)!.body).toContain("Today was good");
-    expect(store.index.items.get(prog.id)!.body).not.toContain("Today was good");
+    await store.importCourseNotes(lesson, ["/Users/you/Desktop/Week 1.note"]);
+    expect(mem.files.has("Knowledge/Courses/Spanish/Lesson 1/Oct 4, 2026.note")).toBe(true);
+    expect(store.index.items.get(lesson.id)!.body).toContain("Today was good");
+    expect(store.index.items.get(course.id)!.body).not.toContain("Today was good");
   });
 });

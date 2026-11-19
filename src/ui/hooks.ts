@@ -15,6 +15,7 @@ export type Route =
   | { view: "home" }
   | { view: "module"; id: string }
   | { view: "item"; id: string; page?: "details" }
+  | { view: "program"; dir: string }
   | { view: "settings" };
 
 export function timeAgo(stamp: string): string {

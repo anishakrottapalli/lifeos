@@ -4,7 +4,7 @@ import { useStore, type Route } from "./hooks";
 export function Sidebar({ route, go, openSearch }: { route: Route; go: (r: Route) => void; openSearch: () => void }) {
   const store = useStore();
   const activeModule =
-    route.view === "module" ? route.id : route.view === "item" ? store.index.items.get(route.id)?.module : undefined;
+    route.view === "module" ? route.id : route.view === "program" ? "courses" : route.view === "item" ? store.index.items.get(route.id)?.module : undefined;
 
   return (
     <nav className="sidebar">
