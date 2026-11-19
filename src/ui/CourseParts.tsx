@@ -1,64 +1,70 @@
 import { useState } from "react";
 import type { Item } from "../core/types";
-import { displayValue, useStore, type Route } from "./hooks";
+import { fileName } from "../core/paths";
+import { useStore, type Route } from "./hooks";
 import { Modal } from "./Modal";
 
 /**
- * On a course's page: the courses inside it (each one clickable), and a way to add more.
- * On one of those courses, a link back to the program it belongs to.
+ * On a course's page: its lessons (each one clickable) with a way to add more, and a link back up to
+ * the course or program it sits inside.
  */
 export function CourseParts({ course, go, beforeChange }: { course: Item; go: (r: Route) => void; beforeChange: () => Promise<void> }) {
   const store = useStore();
   const parent = store.index.courseParent(course);
-  const parts = store.index.courseParts(course);
+  const program = store.index.programOf(course);
+  const lessons = store.index.courseParts(course).filter((c) => c.kind === "lesson");
+  const isLesson = course.kind === "lesson";
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
-  const [instructor, setInstructor] = useState("");
 
-  if (parent) {
-    return (
+  const back =
+    parent || program ? (
       <p className="small">
-        <button className="link" onClick={() => go({ view: "item", id: parent.id })}>
-          ← {parent.title}
+        <button
+          className="link"
+          onClick={() => (parent ? go({ view: "item", id: parent.id }) : go({ view: "program", dir: program! }))}
+        >
+          ← {parent ? parent.title : fileName(program!)}
         </button>
       </p>
-    );
-  }
+    ) : null;
+  if (isLesson) return back;
 
   async function add() {
     if (!title.trim()) return;
     await beforeChange();
-    const part = await store.addCoursePart(store.index.items.get(course.id) ?? course, title.trim(), instructor.trim());
+    const lesson = await store.addCourseLesson(store.index.items.get(course.id) ?? course, title.trim());
     setAdding(false);
     setTitle("");
-    setInstructor("");
-    go({ view: "item", id: part.id });
+    go({ view: "item", id: lesson.id });
   }
 
   return (
-    <section>
-      <div className="section-head">
-        <h3>Courses inside this one{parts.length ? ` (${parts.length})` : ""}</h3>
-        <button className="small-button" onClick={() => setAdding(true)}>
-          + Add course
-        </button>
-      </div>
-      {parts.length === 0 ? (
-        <p className="muted small">For a program or certificate made of several courses. Each one gets its own page.</p>
-      ) : (
-        <ul className="list">
-          {parts.map((p) => (
-            <li key={p.id} className="row" onClick={() => go({ view: "item", id: p.id })}>
-              <span className="row-title">{p.title}</span>
-              <span className="muted small">{displayValue(p.fields["Instructor"])}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+    <>
+      {back}
+      <section>
+        <div className="section-head">
+          <h3>Lessons{lessons.length ? ` (${lessons.length})` : ""}</h3>
+          <button className="small-button" onClick={() => setAdding(true)}>
+            + Add lesson
+          </button>
+        </div>
+        {lessons.length === 0 ? (
+          <p className="muted small">Each lesson gets its own folder, with its own notes and files.</p>
+        ) : (
+          <ul className="list">
+            {lessons.map((p) => (
+              <li key={p.id} className="row" onClick={() => go({ view: "item", id: p.id })}>
+                <span className="row-title">{p.title}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       {adding && (
         <Modal close={() => setAdding(false)}>
-          <h2>Add a course to {course.title}</h2>
+          <h2>Add a lesson to {course.title}</h2>
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -67,12 +73,8 @@ export function CourseParts({ course, go, beforeChange }: { course: Item; go: (r
           >
             <div className="form-rows">
               <label className="field">
-                <span className="field-label">Course name</span>
-                <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} />
-              </label>
-              <label className="field">
-                <span className="field-label">Instructor</span>
-                <input value={instructor} onChange={(e) => setInstructor(e.target.value)} />
+                <span className="field-label">Lesson name</span>
+                <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. 1 - Getting Started" />
               </label>
             </div>
             <div className="modal-actions">
@@ -86,7 +88,7 @@ export function CourseParts({ course, go, beforeChange }: { course: Item; go: (r
           </form>
         </Modal>
       )}
-    </section>
+    </>
   );
 }
 

@@ -246,7 +246,35 @@ export class LifeStore {
     return this.run(() => this.saveNow(item, opts.rename ?? false));
   }
 
+  /** Renaming a course that holds others (or a lesson) renames its folder too, so what's inside stays attached. */
+  private async renameCourseFolderNow(input: Item): Promise<Item> {
+    const mod = this.projectsLike("courses");
+    const old = this.index.items.get(input.id) ?? input;
+    const oldDir = dirName(old.path);
+    const parentDir = dirName(oldDir);
+    const oldName = fileName(oldDir);
+    let name = safeName(input.title);
+    let newDir = oldDir;
+    let path = old.path;
+    if (name !== oldName) {
+      name = uniqueName(name, "", (n) => this.dirTaken(join(parentDir, n)));
+      newDir = join(parentDir, name);
+      await this.storage.renameDir(oldDir, newDir);
+      await this.storage.move(join(newDir, `${oldName}.md`), join(newDir, `${name}.md`));
+      path = join(newDir, `${name}.md`);
+      for (const p of [...this.cache.keys()]) if (p.startsWith(oldDir + "/")) this.cache.delete(p);
+    }
+    const rel = newDir.slice(mod.folder.length).replace(/^\//, "");
+    const item: Item = { ...input, path, folder: rel, updated: nowStamp(), created: input.created || today() };
+    await this.writeNote(path, serializeItem(item, mod));
+    await this.rescanNow();
+    return this.index.items.get(item.id) ?? item;
+  }
+
   private async saveNow(input: Item, rename: boolean): Promise<Item> {
+    if (rename && input.module === "courses" && this.index.isCourseFolder(this.index.items.get(input.id) ?? input)) {
+      return this.renameCourseFolderNow(input);
+    }
     const mod = this.module(input.module);
     if (!mod) throw new Error(`Unknown app: ${input.module}`);
     const item: Item = { ...input, fields: { ...input.fields }, files: [...input.files], links: [...input.links] };
@@ -675,9 +703,9 @@ export class LifeStore {
 
   // ---------- Courses: a program holds several courses (its parts) ----------
   /** Move a course into its own folder ("<Name>/<Name>.md") so courses can sit inside it. Its files go with it. */
-  private async makeProgramNow(course: Item): Promise<Item> {
+  private async makeCourseFolderNow(course: Item): Promise<Item> {
     const fresh = this.index.items.get(course.id) ?? course;
-    if (this.index.isProgram(fresh)) return fresh;
+    if (this.index.isCourseFolder(fresh)) return fresh;
     const mod = this.projectsLike("courses");
     const dir = dirName(fresh.path);
     const name = uniqueName(stripExt(fileName(fresh.path)), "", (n) => this.dirTaken(join(dir, n)));
@@ -702,26 +730,70 @@ export class LifeStore {
     return mod;
   }
 
-  private async createPartNow(program: Item, title: string, instructor: string, link = ""): Promise<Item> {
+  /** A course inside a program: a folder of its own, "<Program>/<Course>/<Course>.md", so its files and lessons sit together. */
+  private async addProgramCourseNow(programDir: string, title: string, instructor = "", provider = ""): Promise<Item> {
     const mod = this.projectsLike("courses");
-    const dir = dirName(program.path);
-    const path = join(dir, uniqueName(safeName(title), ".md", this.taken(dir)));
-    const rel = dir.slice(mod.folder.length).replace(/^\//, "");
-    const part = this.blankItem(mod.id, "", title.trim() || "Untitled", path, "", rel);
-    const n = this.index.courseParts(program).reduce((m, i) => Math.max(m, Number(i.fields["Part"]) || 0), 0) + 1;
-    part.fields = { ...(instructor ? { Instructor: instructor } : {}), ...(link ? { Link: link } : {}), Part: n };
-    await this.writeNote(path, serializeItem(part, mod));
+    const name = uniqueName(safeName(title), "", (n) => this.dirTaken(join(programDir, n)));
+    const path = join(programDir, name, `${name}.md`);
+    const rel = join(programDir, name).slice(mod.folder.length).replace(/^\//, "");
+    const course = this.blankItem(mod.id, "", title.trim() || name, path, "", rel);
+    const n = this.index.programCourses(programDir).reduce((m, i) => Math.max(m, Number(i.fields["Part"]) || 0), 0) + 1;
+    course.fields = { ...(instructor ? { Instructor: instructor } : {}), ...(provider ? { Provider: provider } : {}), Part: n };
+    await this.writeNote(path, serializeItem(course, mod));
     this.index.entries.push({ path, mtime: Date.now(), size: 0 });
     await this.rescanNow();
-    return this.index.byPath.get(path) ?? part;
+    return this.index.byPath.get(path) ?? course;
   }
 
-  /** Add a course (a part) inside another course. The course becomes a program with its own folder if it isn't one yet. */
-  async addCoursePart(course: Item, title: string, instructor = ""): Promise<Item> {
+  /** Add a course to a program (a folder in Courses). */
+  async addCourseToProgram(programDir: string, title: string, instructor = ""): Promise<Item> {
+    return this.run(() => this.addProgramCourseNow(programDir, title, instructor));
+  }
+
+  /** Make a new program with its first course. A program is just a folder, so it needs a course to exist. */
+  async createProgram(name: string, firstCourse: string, instructor = ""): Promise<Item> {
     return this.run(async () => {
-      const program = await this.makeProgramNow(course);
-      return this.createPartNow(program, title, instructor);
+      const mod = this.projectsLike("courses");
+      const dir = join(mod.folder, uniqueName(safeName(name), "", (n) => this.dirTaken(join(mod.folder, n))));
+      return this.addProgramCourseNow(dir, firstCourse, instructor);
     });
+  }
+
+  /** Rename a program's folder. Everything inside goes with it. Returns the new folder. */
+  async renameProgram(dir: string, newName: string): Promise<string> {
+    return this.run(async () => {
+      const mod = this.projectsLike("courses");
+      const name = safeName(newName);
+      if (name === fileName(dir)) return dir;
+      const target = join(mod.folder, uniqueName(name, "", (n) => this.dirTaken(join(mod.folder, n))));
+      await this.storage.renameDir(dir, target);
+      for (const p of [...this.cache.keys()]) if (p.startsWith(dir + "/")) this.cache.delete(p);
+      await this.rescanNow();
+      return target;
+    });
+  }
+
+  /** Add a lesson to a course. A lesson is a page in a folder of its own, so its notes and PDFs sit together. */
+  async addCourseLesson(course: Item, title: string): Promise<Item> {
+    return this.run(() => this.addLessonNow(course, title));
+  }
+
+  private async addLessonNow(course: Item, title: string): Promise<Item> {
+    {
+      const mod = this.projectsLike("courses");
+      const program = await this.makeCourseFolderNow(course);
+      const dir = dirName(program.path);
+      const name = uniqueName(safeName(title), "", (n) => this.dirTaken(join(dir, n)));
+      const path = join(dir, name, `${name}.md`);
+      const rel = join(dir, name).slice(mod.folder.length).replace(/^\//, "");
+      const lesson = this.blankItem(mod.id, "lesson", title.trim() || name, path, "", rel);
+      const n = this.index.courseParts(program).filter((i) => i.kind === "lesson").reduce((m, i) => Math.max(m, Number(i.fields["Part"]) || 0), 0) + 1;
+      lesson.fields = { Part: n };
+      await this.writeNote(path, serializeItem(lesson, mod));
+      this.index.entries.push({ path, mtime: Date.now(), size: 0 });
+      await this.rescanNow();
+      return this.index.byPath.get(path) ?? lesson;
+    }
   }
 
   /**
@@ -742,7 +814,7 @@ export class LifeStore {
         if (ext === ".pdf") {
           // A PDF is kept as it is, in the course's files.
           let c = this.index.items.get(course.id) ?? course;
-          if (!this.index.isProgram(c) && !this.index.courseParent(c)) c = await this.makeProgramNow(c);
+          if (!this.index.isCourseFolder(c) && !this.index.courseParent(c)) c = await this.makeCourseFolderNow(c);
           const dir = dirName(c.path);
           const name = uniqueName(safeName(stripExt(orig)), ".pdf", this.taken(dir));
           await this.storage.importFile(abs, join(dir, name));
@@ -764,7 +836,7 @@ export class LifeStore {
           if (!bytes) throw new Error("couldn't read the file");
           const note = await parseNote(bytes);
           let c = this.index.items.get(course.id) ?? course;
-          if (!this.index.isProgram(c) && !this.index.courseParent(c)) c = await this.makeProgramNow(c);
+          if (!this.index.isCourseFolder(c) && !this.index.courseParent(c)) c = await this.makeCourseFolderNow(c);
           const dir = dirName(c.path);
           const heading = note.title.trim() || stripExt(orig);
           const text = note.text.trim();
@@ -798,12 +870,19 @@ export class LifeStore {
 
   /** Is this Notion course fully in LifeOS already (and, for a program, with its parts as separate courses)? */
   private courseDone(c: NotionCourse): boolean {
-    const existing = this.index.inModule("courses").find((i) => i.title.trim().toLowerCase() === c.title.trim().toLowerCase() && !this.index.courseParent(i));
-    if (!existing) return false;
-    if (!c.parts?.length) return true;
-    if (!this.index.isProgram(existing)) return false;
-    const have = new Set(this.index.courseParts(existing).map((p) => p.title.trim().toLowerCase()));
-    return c.parts.every((p) => have.has(splitPart(p).title.toLowerCase()));
+    const lower = (x: string) => x.trim().toLowerCase();
+    if (!c.parts?.length) return this.index.inModule("courses").some((i) => lower(i.title) === lower(c.title) && this.index.isTopLevelCourse(i));
+    const dir = this.index.programs().find((d) => lower(fileName(d)) === lower(safeName(c.title)));
+    if (!dir) return false;
+    const have = this.index.programCourses(dir);
+    for (const part of c.parts) {
+      const course = have.find((x) => lower(x.title) === lower(splitPart(part).title) && this.index.isCourseFolder(x));
+      if (!course) return false;
+      const lessons = c.lessons?.[splitPart(part).title] ?? [];
+      const haveLessons = new Set(this.index.courseParts(course).map((l) => lower(l.title)));
+      if (!lessons.every((l) => haveLessons.has(lower(l)))) return false;
+    }
+    return true;
   }
 
   coursesLeftToImport(courses: NotionCourse[]): number {
@@ -811,39 +890,59 @@ export class LifeStore {
   }
 
   /**
-   * One-time: add the courses copied from Notion to Knowledge/Courses. A program (like "Become a
-   * Product Manager") gets its own folder with each of its courses as a separate page. Courses
-   * already there are skipped; one imported earlier with a "Parts" list is upgraded in place.
+   * One-time: add the courses copied from Notion to Knowledge/Courses. A program (like "UX Certificate")
+   * is just a folder, with each of its courses a folder inside it (and lessons inside those). Courses
+   * already there are skipped. A program imported by an earlier version (with a page of its own, or
+   * with a plain "Parts" list) is rearranged into this layout.
    */
   async importCourses(courses: NotionCourse[]): Promise<{ added: number; skipped: number }> {
     return this.run(async () => {
       const mod = this.projectsLike("courses");
+      const lower = (x: string) => x.trim().toLowerCase();
       let added = 0;
       for (const c of courses) {
         if (this.courseDone(c)) continue;
-        let main = this.index.inModule("courses").find((i) => i.title.trim().toLowerCase() === c.title.trim().toLowerCase() && !this.index.courseParent(i));
-        if (!main) {
+        if (!c.parts?.length) {
           const fields = { ...(c.instructor ? { Instructor: c.instructor } : {}), ...(c.provider ? { Provider: c.provider } : {}), Status: c.status };
-          const name = c.parts?.length ? uniqueName(safeName(c.title), "", (n) => this.dirTaken(join(mod.folder, n))) : "";
-          const dir = name ? join(mod.folder, name) : mod.folder;
-          const path = name ? join(dir, `${name}.md`) : join(mod.folder, uniqueName(safeName(c.title), ".md", this.taken(mod.folder)));
-          const item = this.blankItem(mod.id, "", c.title, path, "", name);
+          const path = join(mod.folder, uniqueName(safeName(c.title), ".md", this.taken(mod.folder)));
+          const item = this.blankItem(mod.id, "", c.title, path, "", "");
           item.fields = fields;
           await this.writeNote(path, serializeItem(item, mod));
           this.index.entries.push({ path, mtime: Date.now(), size: 0 });
           await this.rescanNow();
-          main = this.index.byPath.get(path) ?? item;
-        } else if (c.parts?.length) {
-          main = await this.makeProgramNow(main);
-          // The old plain-text "Parts" list is replaced by the separate courses.
-          const body = main.body.replace(/\n?## Parts\n\n(?:\d+\. .*(?:\n|$))+/, "").replace(/^\s+/, "");
-          if (body !== main.body) await this.saveNow({ ...main, body }, false);
-          main = this.index.items.get(main.id) ?? main;
+          added++;
+          continue;
         }
-        for (const part of c.parts ?? []) {
+
+        const dir = join(mod.folder, safeName(c.title));
+        // An earlier version gave the program a page of its own; fold it away.
+        const page = this.index.inModule("courses").find((i) => lower(i.title) === lower(c.title) && this.index.isTopLevelCourse(i));
+        if (page) {
+          for (const child of this.index.courseParts(page)) if (!this.index.isCourseFolder(child)) await this.makeCourseFolderNow(child);
+          const fresh = this.index.items.get(page.id) ?? page;
+          const rest = fresh.body.replace(/\n?## Parts\n\n(?:\d+\. .*(?:\n|$))+/, "").trim();
+          if (!rest && fresh.files.length === 0 && fresh.links.length === 0) {
+            // Nothing of yours is on it, so it goes to the trash (recoverable).
+            const stamp = nowStamp().replace(/[:T]/g, "-");
+            let trash = join(".trash", stamp, fresh.path);
+            for (let n = 2; await this.storage.exists(trash); n++) trash = join(".trash", stamp, `${stripExt(fresh.path)} ${n}.md`);
+            await this.storage.move(fresh.path, trash);
+            this.cache.delete(fresh.path);
+            await this.rescanNow();
+          }
+        }
+
+        for (const part of c.parts) {
           const { title, instructor } = splitPart(part);
-          const have = this.index.courseParts(main).some((p) => p.title.trim().toLowerCase() === title.toLowerCase());
-          if (!have) await this.createPartNow(main, title, instructor);
+          let course = this.index.programCourses(dir).find((x) => lower(x.title) === lower(title) && this.index.isCourseFolder(x));
+          if (!course) {
+            const plain = this.index.programCourses(dir).find((x) => lower(x.title) === lower(title));
+            course = plain ? await this.makeCourseFolderNow(plain) : await this.addProgramCourseNow(dir, title, instructor, c.provider);
+          }
+          for (const lesson of c.lessons?.[title] ?? []) {
+            const now = this.index.items.get(course.id) ?? course;
+            if (!this.index.courseParts(now).some((l) => lower(l.title) === lower(lesson))) await this.addLessonNow(now, lesson);
+          }
         }
         added++;
       }
