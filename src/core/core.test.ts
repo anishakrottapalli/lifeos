@@ -509,3 +509,21 @@ describe("importing Notability notes", () => {
     expect(dateFromName("2025-13-40")).toBe("");
   });
 });
+
+describe("moving courses over from Notion", () => {
+  it("adds each course as a file, with parts in the text, and doesn't repeat itself", async () => {
+    const { NOTION_COURSES } = await import("./notion-courses");
+    const { mem, store } = await fresh();
+    const r = await store.importCourses(NOTION_COURSES);
+    expect(r.added).toBe(NOTION_COURSES.length);
+    expect(NOTION_COURSES.length).toBe(23);
+    const ibm = store.index.inModule("courses").find((i) => i.title.startsWith("IBM Data Science"))!;
+    expect(ibm.path).toBe("Knowledge/Courses/IBM Data Science Professional Certificate.md");
+    expect(ibm.fields["Status"]).toBe("Done");
+    expect(ibm.fields["Provider"]).toBe("Coursera");
+    expect(ibm.body).toContain("10. Applied Data Science Capstone");
+    expect(mem.files.has("Knowledge/Courses/Adobe After Effects.md")).toBe(true);
+    const again = await store.importCourses(NOTION_COURSES);
+    expect(again).toEqual({ added: 0, skipped: NOTION_COURSES.length });
+  });
+});
