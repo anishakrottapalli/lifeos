@@ -725,7 +725,7 @@ export class LifeStore {
   }
 
   /**
-   * Bring Notability notes (.note files) into a course. For each note: the typed text is added to the
+   * Bring Notability notes (.note files) and PDFs into a course. A PDF is simply added to the course's files. For each note: the typed text is added to the
    * course's Notes under the note's title, its pictures and recordings become the course's files, and
    * the original .note file is kept in the course's files too. The course gets its own folder
    * ("<Name>/<Name>.md") so everything sits together in Finder.
@@ -738,8 +738,21 @@ export class LifeStore {
       const problems: string[] = [];
       for (const abs of absPaths) {
         const orig = abs.split(/[\\/]/).pop() || "note";
-        if (extName(orig).toLowerCase() !== ".note") {
-          problems.push(`${orig}: not a Notability .note file, left where it is`);
+        const ext = extName(orig).toLowerCase();
+        if (ext === ".pdf") {
+          // A PDF is kept as it is, in the course's files.
+          let c = this.index.items.get(course.id) ?? course;
+          if (!this.index.isProgram(c) && !this.index.courseParent(c)) c = await this.makeProgramNow(c);
+          const dir = dirName(c.path);
+          const name = uniqueName(safeName(stripExt(orig)), ".pdf", this.taken(dir));
+          await this.storage.importFile(abs, join(dir, name));
+          this.index.entries.push({ path: join(dir, name), mtime: Date.now(), size: 0 });
+          await this.saveNow({ ...c, files: [...c.files, name] }, false);
+          imported++;
+          continue;
+        }
+        if (ext !== ".note") {
+          problems.push(`${orig}: not a Notability .note file or a PDF, left where it is`);
           continue;
         }
         // Move it into LifeOS first (nothing outside the folder is ever read), then read it there.

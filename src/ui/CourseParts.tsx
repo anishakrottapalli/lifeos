@@ -111,14 +111,14 @@ export function CourseNoteImport({ course, beforeChange }: { course: Item; befor
 
   return (
     <>
-      <button className="small-button" onClick={run} disabled={busy} title="Bring in Notability notes (.note files) for this course">
-        {busy ? "Importing…" : "+ Import Notability notes"}
+      <button className="small-button" onClick={run} disabled={busy} title="Bring in Notability notes (.note files) or PDFs for this course">
+        {busy ? "Importing…" : "+ Import notes (.note or PDF)"}
       </button>
       {result && (
         <Modal close={() => setResult(null)}>
           <h2>Import finished</h2>
           <p>
-            {result.imported} note{result.imported === 1 ? "" : "s"} added to {course.title}.
+            {result.imported} file{result.imported === 1 ? "" : "s"} added to {course.title}.
           </p>
           {result.problems.length > 0 && (
             <>
