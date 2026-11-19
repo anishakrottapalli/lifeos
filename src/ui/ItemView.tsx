@@ -90,7 +90,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
   const isProject = draft.kind === "project";
   const isModulePage = draft.kind === "module";
   const isLog = draft.kind === "docs" || isModulePage;
-  const shownFields = isProject || !draft.kind ? mod.fields : [];
+  const shownFields = isProject || !draft.kind || draft.kind === "lesson" ? mod.fields : [];
   const ownKeys = isModulePage ? ["App", "Status"] : shownFields.map((f) => f.key);
   const otherKeys = Object.keys(draft.fields).filter((k) => !ownKeys.includes(k));
   const owner = store.index.projectFor(draft);

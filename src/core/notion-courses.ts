@@ -7,6 +7,8 @@ export interface NotionCourse {
   instructor?: string;
   status: "Want" | "In progress" | "Done";
   parts?: string[];
+  /** Lessons inside one of the parts, by that part's title. */
+  lessons?: Record<string, string[]>;
 }
 
 /** A part is written "Course name | Instructor" (the instructor is optional). */
@@ -39,7 +41,23 @@ export const NOTION_COURSES: NotionCourse[] = [
   },
   { title: "Ethical Leadership Certification", provider: "NASBA Center for Public Trust", status: "Done" },
   { title: "User Experience Design Essentials - Adobe XD UI UX Design", instructor: "Daniel Scott", provider: "Udemy", status: "Done" },
-  { title: "UX Certificate", provider: "CareerFoundry", status: "Done", parts: ["Intro to UX Design", "UX Immersion", "Front-End Development"] },
+  {
+    title: "UX Certificate",
+    provider: "CareerFoundry",
+    status: "Done",
+    parts: ["Intro to UX Design", "UX Immersion", "Front-End Development"],
+    lessons: {
+      "UX Immersion": [
+        "1 - Thinking Like a User",
+        "2 - Understanding the User",
+        "3 - Foundational Design",
+        "4 - Usability Testing",
+        "5 - Refining the Design",
+        "6 - End to End Design",
+      ],
+      "Front-End Development": ["1 - Getting Started with HTML & CSS", "2 - JavaScript & Your Portfolio Site"],
+    },
+  },
   { title: "Learning JIRA software", instructor: "Robert Anthony", provider: "LinkedIn Learning", status: "Done" },
   { title: "Speaking Up At Work", instructor: "Jessica Chen", provider: "LinkedIn Learning", status: "Done" },
   { title: "Finding Your Idea Hook", instructor: "Stefan Mumaw", provider: "LinkedIn Learning", status: "Done" },

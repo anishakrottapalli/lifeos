@@ -535,6 +535,45 @@ describe("moving courses over from Notion", () => {
     expect(store.index.courseParts(pm)).toHaveLength(8);
   });
 
+  it("the UX Certificate gets its lessons as folders inside the right courses", async () => {
+    const { NOTION_COURSES } = await import("./notion-courses");
+    const { mem, store } = await fresh();
+    await store.importCourses(NOTION_COURSES.filter((c) => c.title === "UX Certificate"));
+    const ux = store.index.inModule("courses").find((i) => i.title === "UX Certificate")!;
+    const fe = store.index.courseParts(ux).find((p) => p.title === "Front-End Development")!;
+    expect(fe.path).toBe("Knowledge/Courses/UX Certificate/Front-End Development/Front-End Development.md");
+    const lessons = store.index.courseParts(fe);
+    expect(lessons.map((l) => l.title)).toEqual(["1 - Getting Started with HTML & CSS", "2 - JavaScript & Your Portfolio Site"]);
+    expect(lessons.every((l) => l.kind === "lesson")).toBe(true);
+    expect(lessons[0].path).toBe("Knowledge/Courses/UX Certificate/Front-End Development/1 - Getting Started with HTML & CSS/1 - Getting Started with HTML & CSS.md");
+    expect(store.index.courseParent(lessons[0])?.id).toBe(fe.id);
+    expect(store.index.courseParent(fe)?.id).toBe(ux.id);
+    const im = store.index.courseParts(ux).find((p) => p.title === "UX Immersion")!;
+    expect(store.index.courseParts(im).map((l) => l.title)).toHaveLength(6);
+    // the program lists its courses, not the lessons inside them
+    expect(store.index.courseParts(ux).map((p) => p.title)).toEqual(["Intro to UX Design", "UX Immersion", "Front-End Development"]);
+    expect(store.coursesLeftToImport(NOTION_COURSES.filter((c) => c.title === "UX Certificate"))).toBe(0);
+    // a PDF added to a lesson sits in that lesson's folder
+    mem.external.set("/Users/you/Desktop/slides.pdf", "PDF");
+    await store.importCourseNotes(lessons[0], ["/Users/you/Desktop/slides.pdf"]);
+    expect(mem.files.has("Knowledge/Courses/UX Certificate/Front-End Development/1 - Getting Started with HTML & CSS/slides.pdf")).toBe(true);
+  });
+
+  it("adding a lesson to a course makes it a folder; renaming the course renames its folder with everything inside", async () => {
+    const { mem, store } = await fresh();
+    const c = await store.createItem("courses", "Spanish", "", {});
+    const lesson = await store.addCourseLesson(c, "Lesson 1");
+    expect(lesson.path).toBe("Knowledge/Courses/Spanish/Lesson 1/Lesson 1.md");
+    expect(lesson.kind).toBe("lesson");
+    const folderItem = store.index.items.get(c.id)!;
+    await store.saveItem({ ...folderItem, title: "Spanish Basics" }, { rename: true });
+    expect(mem.files.has("Knowledge/Courses/Spanish Basics/Spanish Basics.md")).toBe(true);
+    expect(mem.files.has("Knowledge/Courses/Spanish Basics/Lesson 1/Lesson 1.md")).toBe(true);
+    expect(mem.files.has("Knowledge/Courses/Spanish/Spanish.md")).toBe(false);
+    const renamed = store.index.items.get(c.id)!;
+    expect(store.index.courseParts(renamed).map((l) => l.title)).toEqual(["Lesson 1"]);
+  });
+
   it("upgrades a course imported earlier with a plain Parts list, and keeps its files", async () => {
     const { NOTION_COURSES } = await import("./notion-courses");
     const { mem, store } = await fresh();

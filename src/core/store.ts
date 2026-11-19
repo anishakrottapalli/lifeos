@@ -246,7 +246,35 @@ export class LifeStore {
     return this.run(() => this.saveNow(item, opts.rename ?? false));
   }
 
+  /** Renaming a course that holds others (or a lesson) renames its folder too, so what's inside stays attached. */
+  private async renameCourseFolderNow(input: Item): Promise<Item> {
+    const mod = this.projectsLike("courses");
+    const old = this.index.items.get(input.id) ?? input;
+    const oldDir = dirName(old.path);
+    const parentDir = dirName(oldDir);
+    const oldName = fileName(oldDir);
+    let name = safeName(input.title);
+    let newDir = oldDir;
+    let path = old.path;
+    if (name !== oldName) {
+      name = uniqueName(name, "", (n) => this.dirTaken(join(parentDir, n)));
+      newDir = join(parentDir, name);
+      await this.storage.renameDir(oldDir, newDir);
+      await this.storage.move(join(newDir, `${oldName}.md`), join(newDir, `${name}.md`));
+      path = join(newDir, `${name}.md`);
+      for (const p of [...this.cache.keys()]) if (p.startsWith(oldDir + "/")) this.cache.delete(p);
+    }
+    const rel = newDir.slice(mod.folder.length).replace(/^\//, "");
+    const item: Item = { ...input, path, folder: rel, updated: nowStamp(), created: input.created || today() };
+    await this.writeNote(path, serializeItem(item, mod));
+    await this.rescanNow();
+    return this.index.items.get(item.id) ?? item;
+  }
+
   private async saveNow(input: Item, rename: boolean): Promise<Item> {
+    if (rename && input.module === "courses" && this.index.isProgram(this.index.items.get(input.id) ?? input)) {
+      return this.renameCourseFolderNow(input);
+    }
     const mod = this.module(input.module);
     if (!mod) throw new Error(`Unknown app: ${input.module}`);
     const item: Item = { ...input, fields: { ...input.fields }, files: [...input.files], links: [...input.links] };
@@ -716,6 +744,29 @@ export class LifeStore {
     return this.index.byPath.get(path) ?? part;
   }
 
+  /** Add a lesson to a course. A lesson is a page in a folder of its own, so its notes and PDFs sit together. */
+  async addCourseLesson(course: Item, title: string): Promise<Item> {
+    return this.run(() => this.addLessonNow(course, title));
+  }
+
+  private async addLessonNow(course: Item, title: string): Promise<Item> {
+    {
+      const mod = this.projectsLike("courses");
+      const program = await this.makeProgramNow(course);
+      const dir = dirName(program.path);
+      const name = uniqueName(safeName(title), "", (n) => this.dirTaken(join(dir, n)));
+      const path = join(dir, name, `${name}.md`);
+      const rel = join(dir, name).slice(mod.folder.length).replace(/^\//, "");
+      const lesson = this.blankItem(mod.id, "lesson", title.trim() || name, path, "", rel);
+      const n = this.index.courseParts(program).filter((i) => i.kind === "lesson").reduce((m, i) => Math.max(m, Number(i.fields["Part"]) || 0), 0) + 1;
+      lesson.fields = { Part: n };
+      await this.writeNote(path, serializeItem(lesson, mod));
+      this.index.entries.push({ path, mtime: Date.now(), size: 0 });
+      await this.rescanNow();
+      return this.index.byPath.get(path) ?? lesson;
+    }
+  }
+
   /** Add a course (a part) inside another course. The course becomes a program with its own folder if it isn't one yet. */
   async addCoursePart(course: Item, title: string, instructor = ""): Promise<Item> {
     return this.run(async () => {
@@ -803,7 +854,14 @@ export class LifeStore {
     if (!c.parts?.length) return true;
     if (!this.index.isProgram(existing)) return false;
     const have = new Set(this.index.courseParts(existing).map((p) => p.title.trim().toLowerCase()));
-    return c.parts.every((p) => have.has(splitPart(p).title.toLowerCase()));
+    if (!c.parts.every((p) => have.has(splitPart(p).title.toLowerCase()))) return false;
+    for (const [partTitle, lessons] of Object.entries(c.lessons ?? {})) {
+      const part = this.index.courseParts(existing).find((p) => p.title.trim().toLowerCase() === partTitle.toLowerCase());
+      if (!part) return false;
+      const haveLessons = new Set(this.index.courseParts(part).map((l) => l.title.trim().toLowerCase()));
+      if (!lessons.every((l) => haveLessons.has(l.trim().toLowerCase()))) return false;
+    }
+    return true;
   }
 
   coursesLeftToImport(courses: NotionCourse[]): number {
@@ -844,6 +902,14 @@ export class LifeStore {
           const { title, instructor } = splitPart(part);
           const have = this.index.courseParts(main).some((p) => p.title.trim().toLowerCase() === title.toLowerCase());
           if (!have) await this.createPartNow(main, title, instructor);
+        }
+        for (const [partTitle, lessons] of Object.entries(c.lessons ?? {})) {
+          const part = this.index.courseParts(main).find((x) => x.title.trim().toLowerCase() === partTitle.toLowerCase());
+          if (!part) continue;
+          for (const lesson of lessons) {
+            const now = this.index.items.get(part.id) ?? part;
+            if (!this.index.courseParts(now).some((l) => l.title.trim().toLowerCase() === lesson.trim().toLowerCase())) await this.addLessonNow(now, lesson);
+          }
         }
         added++;
       }

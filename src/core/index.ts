@@ -146,7 +146,9 @@ export class LifeIndex {
     return p ? `${p.title} › ${item.title}` : item.title;
   }
 
-  // ---------- courses: a program is a folder "<Name>/<Name>.md" with its courses (parts) beside it ----------
+  // ---------- courses ----------
+  // A course with things inside it (a program's courses, or a course's lessons) is a folder:
+  // "<Name>/<Name>.md" with its children beside it (a lesson is a folder of its own, too).
   isProgram(item: Item): boolean {
     const mod = this.module("courses");
     if (!mod || item.module !== "courses") return false;
@@ -154,21 +156,27 @@ export class LifeIndex {
     return dir.startsWith(mod.folder + "/") && stripExt(fileName(item.path)) === fileName(dir);
   }
 
-  /** The courses inside a program, in the order they were added. */
+  /** What sits directly inside a course: its courses and lessons, in the order they were added. */
   courseParts(program: Item): Item[] {
     if (!this.isProgram(program)) return [];
     const dir = dirName(program.path);
     const order = (i: Item) => (Number(i.fields["Part"]) > 0 ? Number(i.fields["Part"]) : 9999);
     return [...this.items.values()]
-      .filter((i) => i.module === "courses" && i.id !== program.id && dirName(i.path) === dir)
+      .filter(
+        (i) =>
+          i.module === "courses" &&
+          i.id !== program.id &&
+          (dirName(i.path) === dir || (this.isProgram(i) && dirName(dirName(i.path)) === dir)),
+      )
       .sort((a, b) => order(a) - order(b) || a.title.localeCompare(b.title));
   }
 
-  /** The program a course sits inside (undefined for a course on its own, and for a program). */
+  /** The course this one sits inside (undefined for a top-level course). */
   courseParent(item: Item): Item | undefined {
     const mod = this.module("courses");
-    if (!mod || item.module !== "courses" || this.isProgram(item)) return undefined;
-    const dir = dirName(item.path);
+    if (!mod || item.module !== "courses") return undefined;
+    // A folder's own page belongs to the folder above it; any other page belongs to its own folder.
+    const dir = this.isProgram(item) ? dirName(dirName(item.path)) : dirName(item.path);
     if (!dir.startsWith(mod.folder + "/")) return undefined;
     return this.byPath.get(join(dir, `${fileName(dir)}.md`));
   }
