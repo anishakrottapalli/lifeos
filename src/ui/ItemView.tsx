@@ -97,13 +97,16 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
   const backlinks = store.index.backlinks(draft.id);
   const folders = store.index.subfolders(draft.module);
   const dir = dirName(draft.path);
+  // Files this page remembers but that aren't in its folder anymore (moved in Finder) are left out of the list.
+  const here = new Set(store.index.entries.filter((e) => dirName(e.path) === dir).map((e) => fileName(e.path)));
+  const attached = draft.module === "courses" ? draft.files.filter((f) => here.has(f)) : draft.files;
   // A course or lesson has a folder of its own: show every file in it, even ones put there in Finder.
   const inFolder =
     draft.module === "courses" && store.index.isCourseFolder(draft)
       ? store.index.entries
           .filter((e) => dirName(e.path) === dir && !isNote(e.path) && !isBoardFile(e.path) && !fileName(e.path).startsWith("."))
           .map((e) => fileName(e.path))
-          .filter((n) => !draft.files.includes(n))
+          .filter((n) => !attached.includes(n))
           .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
       : [];
 
@@ -314,11 +317,11 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
           </button>
           </span>
         </div>
-        {draft.files.length === 0 && inFolder.length === 0 ? (
+        {attached.length === 0 && inFolder.length === 0 ? (
           <p className="muted small">No files. Added files are moved (not copied) into this item's folder.</p>
         ) : (
           <ul className="list">
-            {draft.files.map((f) => (
+            {attached.map((f) => (
               <li key={f} className="row">
                 <span className="row-icon">📄</span>
                 <span className="row-title">{f}</span>
