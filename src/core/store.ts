@@ -737,7 +737,7 @@ export class LifeStore {
     const path = join(programDir, name, `${name}.md`);
     const rel = join(programDir, name).slice(mod.folder.length).replace(/^\//, "");
     const course = this.blankItem(mod.id, "", title.trim() || name, path, "", rel);
-    const n = this.index.programCourses(programDir).reduce((m, i) => Math.max(m, Number(i.fields["Part"]) || 0), 0) + 1;
+    const n = this.programChildren(programDir).reduce((m, i) => Math.max(m, Number(i.fields["Part"]) || 0), 0) + 1;
     course.fields = { ...(instructor ? { Instructor: instructor } : {}), ...(provider ? { Provider: provider } : {}), Part: n };
     await this.writeNote(path, serializeItem(course, mod));
     this.index.entries.push({ path, mtime: Date.now(), size: 0 });
@@ -872,9 +872,9 @@ export class LifeStore {
   private courseDone(c: NotionCourse): boolean {
     const lower = (x: string) => x.trim().toLowerCase();
     if (!c.parts?.length) return this.index.inModule("courses").some((i) => lower(i.title) === lower(c.title) && this.index.isTopLevelCourse(i));
-    const dir = this.index.programs().find((d) => lower(fileName(d)) === lower(safeName(c.title)));
-    if (!dir) return false;
-    const have = this.index.programCourses(dir);
+    const dir = join(this.projectsLike("courses").folder, safeName(c.title));
+    const have = this.programChildren(dir);
+    if (have.length === 0) return false;
     for (const part of c.parts) {
       const course = have.find((x) => lower(x.title) === lower(splitPart(part).title) && this.index.isCourseFolder(x));
       if (!course) return false;
@@ -882,7 +882,57 @@ export class LifeStore {
       const haveLessons = new Set(this.index.courseParts(course).map((l) => lower(l.title)));
       if (!lessons.every((l) => haveLessons.has(lower(l)))) return false;
     }
-    return true;
+    // Loose files that now have a home still need sorting.
+    return !this.looseFilesIn(dir).some((name) => this.placeFor(dir, c, name));
+  }
+
+  /** Files lying directly in a program's folder that no page has taken (put there in Finder). */
+  private looseFilesIn(dir: string): string[] {
+    return this.index.entries
+      .filter((e) => dirName(e.path) === dir && !isNote(e.path) && !isBoardFile(e.path) && !fileName(e.path).startsWith("."))
+      .map((e) => fileName(e.path));
+  }
+
+  /** The course folders inside a program folder, whether or not the program still has a page of its own. */
+  private programChildren(dir: string): Item[] {
+    const page = this.index.byPath.get(join(dir, `${fileName(dir)}.md`));
+    return page ? this.index.courseParts(page) : this.index.programCourses(dir);
+  }
+
+  /** Which course or lesson page a loose file belongs to: by the list in the data, else by its name matching one course title. */
+  private placeFor(dir: string, c: NotionCourse, name: string): Item | undefined {
+    const lower = (x: string) => x.trim().toLowerCase();
+    const courses = this.programChildren(dir).filter((x) => this.index.isCourseFolder(x));
+    for (const [key, names] of Object.entries(c.place ?? {})) {
+      if (!names.includes(name)) continue;
+      const [courseTitle, lessonTitle] = key.split("/");
+      const course = courses.find((x) => lower(x.title) === lower(courseTitle));
+      if (!course) return undefined;
+      return lessonTitle ? this.index.courseParts(course).find((l) => lower(l.title) === lower(lessonTitle)) : course;
+    }
+    // By name: every word of exactly one course's title appears in the file's name.
+    const words = (x: string) => x.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+    const have = new Set(words(name.replace(/\.[^.]+$/, "")));
+    const hits = courses.filter((x) => words(x.title).every((w) => have.has(w)));
+    if (hits.length === 0) return undefined;
+    const best = Math.max(...hits.map((x) => words(x.title).length));
+    const top = hits.filter((x) => words(x.title).length === best);
+    return top.length === 1 ? top[0] : undefined;
+  }
+
+  /** Move the loose files in a program's folder into the course or lesson folder they belong to. */
+  private async sortLooseFilesNow(dir: string, c: NotionCourse): Promise<void> {
+    for (const name of this.looseFilesIn(dir)) {
+      const target = this.placeFor(dir, c, name);
+      if (!target) continue;
+      const fresh = this.index.items.get(target.id) ?? target;
+      const to = join(dirName(fresh.path), name);
+      if (await this.storage.exists(to)) continue;
+      await this.storage.move(join(dir, name), to);
+      this.index.entries = this.index.entries.filter((e) => e.path !== join(dir, name));
+      this.index.entries.push({ path: to, mtime: Date.now(), size: 0 });
+      await this.saveNow({ ...fresh, files: fresh.files.includes(name) ? fresh.files : [...fresh.files, name] }, false);
+    }
   }
 
   coursesLeftToImport(courses: NotionCourse[]): number {
@@ -918,7 +968,11 @@ export class LifeStore {
         // An earlier version gave the program a page of its own; fold it away.
         const page = this.index.inModule("courses").find((i) => lower(i.title) === lower(c.title) && this.index.isTopLevelCourse(i));
         if (page) {
-          for (const child of this.index.courseParts(page)) if (!this.index.isCourseFolder(child)) await this.makeCourseFolderNow(child);
+          // Only the pages that are courses in the list become folders; any other note of yours stays where it is.
+          const wanted = new Set(c.parts.map((x) => splitPart(x).title.toLowerCase()));
+          for (const child of this.index.courseParts(page)) {
+            if (!this.index.isCourseFolder(child) && wanted.has(child.title.trim().toLowerCase())) await this.makeCourseFolderNow(child);
+          }
           const fresh = this.index.items.get(page.id) ?? page;
           const rest = fresh.body.replace(/\n?## Parts\n\n(?:\d+\. .*(?:\n|$))+/, "").trim();
           if (!rest && fresh.files.length === 0 && fresh.links.length === 0) {
@@ -934,9 +988,9 @@ export class LifeStore {
 
         for (const part of c.parts) {
           const { title, instructor } = splitPart(part);
-          let course = this.index.programCourses(dir).find((x) => lower(x.title) === lower(title) && this.index.isCourseFolder(x));
+          let course = this.programChildren(dir).find((x) => lower(x.title) === lower(title) && this.index.isCourseFolder(x));
           if (!course) {
-            const plain = this.index.programCourses(dir).find((x) => lower(x.title) === lower(title));
+            const plain = this.programChildren(dir).find((x) => lower(x.title) === lower(title));
             course = plain ? await this.makeCourseFolderNow(plain) : await this.addProgramCourseNow(dir, title, instructor, c.provider);
           }
           for (const lesson of c.lessons?.[title] ?? []) {
@@ -944,6 +998,7 @@ export class LifeStore {
             if (!this.index.courseParts(now).some((l) => lower(l.title) === lower(lesson))) await this.addLessonNow(now, lesson);
           }
         }
+        await this.sortLooseFilesNow(dir, c);
         added++;
       }
       return { added, skipped: courses.length - added };

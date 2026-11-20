@@ -9,6 +9,8 @@ export interface NotionCourse {
   parts?: string[];
   /** Lessons inside one of the parts, by that part's title. */
   lessons?: Record<string, string[]>;
+  /** Loose files already in the program's folder (put there in Finder) and where they belong: "Course" or "Course/Lesson". */
+  place?: Record<string, string[]>;
 }
 
 /** A part is written "Course name | Instructor" (the instructor is optional). */
@@ -56,6 +58,35 @@ export const NOTION_COURSES: NotionCourse[] = [
         "6 - End to End Design",
       ],
       "Front-End Development": ["1 - Getting Started with HTML & CSS", "2 - JavaScript & Your Portfolio Site"],
+    },
+    place: {
+      "Intro to UX Design": [
+        "1.1- Introduction to UX & Design Thinking.pdf",
+        "1.2- User Research.pdf",
+        "1.3- User Personas.pdf",
+        "1.4- Information Architecture.pdf",
+        "1.5- Wireframing & Prototyping.pdf",
+        "1.6- Usability Testing.pdf",
+        "1.7- Presenting Your Work.pdf",
+      ],
+      "Front-End Development/1 - Getting Started with HTML & CSS": [
+        "1.1-Getting Started with Your Frontend Course.pdf",
+        "1.2 - Internet & the Web.pdf",
+        "1.3 - Starting with HTML.pdf",
+        "1.4 - Coding with HTML.pdf",
+        "1.5 - Using GitHub for Your Projects.pdf",
+        "1.6 - CSS Basics.pdf",
+        "1.7 - CSS Layouts.pdf",
+        "1.8 - Advanced CSS for Designers.pdf",
+      ],
+      "Front-End Development/2 - JavaScript & Your Portfolio Site": [
+        "2.1 - Introduction to JavaScript.pdf",
+        "2.2 - Coding with JavaScript.pdf",
+        "2.3 - JavaScript Libraries & Plugins.pdf",
+        "2.4 - User Testing.pdf",
+        "2.5 - Code Quality & Cross-Browser Testing.pdf",
+        "2.6 - Portfolio Site Demo & Case Study.pdf",
+      ],
     },
   },
   { title: "Learning JIRA software", instructor: "Robert Anthony", provider: "LinkedIn Learning", status: "Done" },
