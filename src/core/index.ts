@@ -193,6 +193,37 @@ export class LifeIndex {
     return !this.courseParent(item) && !this.programOf(item);
   }
 
+  /** "UX Certificate → Front-End Development → 1 - Getting Started": where a course or lesson sits. */
+  courseLabel(item: Item): string {
+    let top = item;
+    const chain = [item.title];
+    for (let p = this.courseParent(item); p; p = this.courseParent(p)) {
+      chain.unshift(p.title);
+      top = p;
+    }
+    const prog = this.programOf(top);
+    if (prog) chain.unshift(fileName(prog));
+    return chain.join(" → ");
+  }
+
+  /** Every course and lesson a file could be put in, by where it sits, A to Z. */
+  courseTargets(): { item: Item; label: string }[] {
+    return this.inModule("courses")
+      .map((item) => ({ item, label: this.courseLabel(item) }))
+      .sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+  }
+
+  /** The one course or lesson whose title's words are all in a file's name (the longest title wins), if there is exactly one. */
+  suggestCourse(name: string): Item | undefined {
+    const words = (x: string) => x.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+    const have = new Set(words(name.replace(/\.[^.]+$/, "")));
+    const hits = this.inModule("courses").filter((i) => words(i.title).length > 0 && words(i.title).every((w) => have.has(w)));
+    if (hits.length === 0) return undefined;
+    const best = Math.max(...hits.map((i) => words(i.title).length));
+    const top = hits.filter((i) => words(i.title).length === best);
+    return top.length === 1 ? top[0] : undefined;
+  }
+
   /** "Part 1 of 7" for a course inside a program, "Lesson 2 of 6" for a lesson ("" for anything else). */
   partLabel(item: Item): string {
     if (item.kind === "lesson") {
@@ -311,8 +342,11 @@ export class LifeIndex {
     const mod = this.module(moduleId);
     if (!mod) return [];
     const claimed = new Set<string>();
+    // A course or lesson owns its whole folder: every file in it is shown on its page.
+    const owned = new Set<string>();
     for (const i of this.items.values()) {
       for (const f of i.files) claimed.add(join(dirName(i.path), f));
+      if (this.isCourseFolder(i)) owned.add(dirName(i.path));
     }
     return this.entries.filter(
       (e) =>
@@ -320,6 +354,8 @@ export class LifeIndex {
         !isBoardFile(e.path) &&
         moduleForPath(e.path, this.modules)?.id === moduleId &&
         !claimed.has(e.path) &&
+        !owned.has(dirName(e.path)) &&
+        !fileName(e.path).startsWith(".") &&
         !fileName(e.path).endsWith(".lifeos-tmp"),
     );
   }

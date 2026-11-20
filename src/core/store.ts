@@ -841,6 +841,23 @@ export class LifeStore {
     });
   }
 
+  /** Put a loose file into a course or lesson: it moves into that folder and is listed on its page. */
+  async moveLooseFileToCourse(filePath: string, courseId: string): Promise<void> {
+    return this.run(async () => {
+      const course = this.index.items.get(courseId);
+      if (!course) throw new Error("That course isn't there anymore.");
+      let c = course;
+      if (!this.index.isCourseFolder(c) && !this.index.courseParent(c)) c = await this.makeCourseFolderNow(c);
+      const dir = dirName(c.path);
+      if (dirName(filePath) === dir) return;
+      const name = uniqueName(safeName(stripExt(fileName(filePath))), extName(filePath), this.taken(dir));
+      await this.storage.move(filePath, join(dir, name));
+      this.index.entries = this.index.entries.filter((e) => e.path !== filePath);
+      this.index.entries.push({ path: join(dir, name), mtime: Date.now(), size: 0 });
+      await this.saveNow({ ...c, files: [...c.files, name] }, false);
+    });
+  }
+
   /** The course folders inside a program folder, whether or not the program still has a page of its own. */
   private programChildren(dir: string): Item[] {
     const page = this.index.byPath.get(join(dir, `${fileName(dir)}.md`));
