@@ -621,3 +621,22 @@ describe("files on a course page", () => {
     expect(store.index.courseParent(store.index.items.get(l1.id)!)?.id).toBe(fe.id);
   });
 });
+
+import { projectPages, cardKey } from "../ui/Board";
+describe("the artboard's pages (tabs in the sidebar, icons on the artboard)", () => {
+  it("lists Overview, then the sections in order, then Documentation", async () => {
+    const { store } = await fresh();
+    const p = await store.createProject("Venture", "Personal", {}, ["overview", "02 Market Research", "03 Customer Development", "docs"]);
+    const pages = projectPages(store.index, store.index.items.get(p.id)!);
+    expect(pages.map((x) => x.title)).toEqual(["Overview", "Market Research", "Customer Development", "Documentation"]);
+    expect(pages[0].open).toEqual({ view: "item", id: p.id, page: "details" });
+    const bare = await store.createProject("Bare", "Personal", {}, []);
+    expect(projectPages(store.index, store.index.items.get(bare.id)!)).toEqual([]);
+  });
+
+  it("gives every kind of card its own key", () => {
+    expect(cardKey({ id: "1", type: "page", page: "overview", x: 0, y: 0 })).toBe("p:overview");
+    expect(cardKey({ id: "2", type: "file", file: "a.pdf", x: 0, y: 0 })).toBe("f:a.pdf");
+    expect(cardKey({ id: "3", type: "text", x: 0, y: 0 })).toBe("t:3");
+  });
+});
