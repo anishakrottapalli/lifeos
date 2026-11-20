@@ -70,6 +70,7 @@ export function ProgramView({ dir, go }: { dir: string; go: (r: Route) => void }
           {courses.map((c) => (
             <li key={c.id} className="row" onClick={() => go({ view: "item", id: c.id })}>
               <span className="row-title">{c.title}</span>
+              <span className="muted small">{store.index.partLabel(c)}</span>
               <span className="muted small">{displayValue(c.fields["Instructor"])}</span>
             </li>
           ))}

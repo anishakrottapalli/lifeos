@@ -193,6 +193,37 @@ export class LifeIndex {
     return !this.courseParent(item) && !this.programOf(item);
   }
 
+  /** "Part 1 of 7" for a course inside a program, "Lesson 2 of 6" for a lesson ("" for anything else). */
+  partLabel(item: Item): string {
+    if (item.kind === "lesson") {
+      const parent = this.courseParent(item);
+      if (!parent) return "";
+      const all = this.courseParts(parent).filter((c) => c.kind === "lesson");
+      const i = all.findIndex((c) => c.id === item.id);
+      return i < 0 ? "" : `Lesson ${i + 1} of ${all.length}`;
+    }
+    const dir = this.programOf(item);
+    if (!dir || !this.isCourseFolder(item)) return "";
+    const all = this.programCourses(dir).filter((c) => this.isCourseFolder(c));
+    const i = all.findIndex((c) => c.id === item.id);
+    return i < 0 ? "" : `Part ${i + 1} of ${all.length}`;
+  }
+
+  /**
+   * The files a course or lesson page shows: the ones it was told about that are still in its folder,
+   * plus any other file in its folder (put there in Finder).
+   */
+  courseFiles(item: Item): { attached: string[]; inFolder: string[] } {
+    const dir = dirName(item.path);
+    const here = new Set(this.entries.filter((e) => dirName(e.path) === dir).map((e) => fileName(e.path)));
+    const attached = item.files.filter((f) => here.has(f));
+    if (!this.isCourseFolder(item)) return { attached, inFolder: [] };
+    const inFolder = [...here]
+      .filter((n) => !isNote(join(dir, n)) && !isBoardFile(join(dir, n)) && !n.startsWith(".") && !attached.includes(n))
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    return { attached, inFolder };
+  }
+
   /** What sits directly inside a course: its courses and lessons, in the order they were added. */
   courseParts(program: Item): Item[] {
     if (!this.isCourseFolder(program)) return [];

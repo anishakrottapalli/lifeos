@@ -529,7 +529,7 @@ describe("courses, programs and lessons", () => {
     expect(store.index.isTopLevelCourse(l1)).toBe(false);
     // a PDF added to a lesson sits in that lesson's folder
     mem.external.set("/Users/you/Desktop/1.1 - Start.pdf", "PDF");
-    await store.importCourseNotes(l1, ["/Users/you/Desktop/1.1 - Start.pdf"]);
+    expect(await store.addCourseFiles(l1, ["/Users/you/Desktop/1.1 - Start.pdf"])).toBe(1);
     expect(mem.files.has(`${base}/Front-End Development/1 - Getting Started with HTML & CSS/1.1 - Start.pdf`)).toBe(true);
   });
 
@@ -576,38 +576,48 @@ describe("courses, programs and lessons", () => {
   });
 });
 
-describe("Notability notes inside a course", () => {
-  it("adds the typed text to Notes, keeps pictures and the original .note in Files, in the course's own folder", async () => {
+describe("files on a course page", () => {
+  it("several files of any kind go in at once, under their own names, into the course's own folder", async () => {
     const { mem, store } = await fresh();
     const course = await store.createItem("courses", "Spanish", "", {});
-    mem.external.set("/Users/you/Desktop/Lesson 1.note", noteBinary());
-    mem.external.set("/Users/you/Desktop/notes.txt", "x");
-    const r = await store.importCourseNotes(course, ["/Users/you/Desktop/Lesson 1.note", "/Users/you/Desktop/notes.txt"]);
-    expect(r.imported).toBe(1);
-    expect(r.problems).toEqual(["notes.txt: not a Notability .note file or a PDF, left where it is"]);
+    for (const f of ["slides.pdf", "notes.md", "board.png", "Lesson 1.note"]) mem.external.set(`/Users/you/Desktop/${f}`, "x");
+    const n = await store.addCourseFiles(course, ["slides.pdf", "notes.md", "board.png", "Lesson 1.note"].map((f) => `/Users/you/Desktop/${f}`));
+    expect(n).toBe(4);
     const c = store.index.items.get(course.id)!;
     expect(c.path).toBe("Knowledge/Courses/Spanish/Spanish.md");
-    expect(c.body).toContain("## Oct 4, 2026");
-    expect(c.body).toContain("Dear diary.\nToday was good (really).");
-    expect(c.files.sort()).toEqual(["Oct 4, 2026.note", "pic one.png", "rec.m4a"]);
-    expect(mem.files.has("Knowledge/Courses/Spanish/Oct 4, 2026.note")).toBe(true);
-    expect(mem.files.has("Knowledge/Courses/Spanish/pic one.png")).toBe(true);
-    expect(mem.files.has("Knowledge/Courses/.import/Lesson 1.note")).toBe(false);
-    // the same note again: only the original is kept, the text isn't repeated
-    mem.external.set("/Users/you/Desktop/Lesson 1 copy.note", noteBinary());
-    const again = await store.importCourseNotes(c, ["/Users/you/Desktop/Lesson 1 copy.note"]);
-    expect(again.imported).toBe(0);
-    expect(store.index.items.get(course.id)!.body.match(/Dear diary/g)).toHaveLength(1);
+    expect(c.files).toEqual(["slides.pdf", "notes.md", "board.png", "Lesson 1.note"]);
+    for (const f of c.files) expect(mem.files.has(`Knowledge/Courses/Spanish/${f}`)).toBe(true);
+    // a second file with the same name is kept, with " 2", never overwritten
+    mem.external.set("/Users/you/Downloads/slides.pdf", "y");
+    await store.addCourseFiles(c, ["/Users/you/Downloads/slides.pdf"]);
+    expect(store.index.items.get(course.id)!.files).toContain("slides 2.pdf");
+    expect(mem.files.get("Knowledge/Courses/Spanish/slides.pdf")?.text).toBe("x");
   });
 
-  it("a note in a lesson goes in that lesson's own folder", async () => {
+  it("shows 'Part 1 of 3' and 'Lesson 2 of 2', and lists the files in a folder, not ones moved away", async () => {
     const { mem, store } = await fresh();
-    const course = await store.createItem("courses", "Spanish", "", {});
-    const lesson = await store.addCourseLesson(course, "Lesson 1");
-    mem.external.set("/Users/you/Desktop/Week 1.note", noteBinary());
-    await store.importCourseNotes(lesson, ["/Users/you/Desktop/Week 1.note"]);
-    expect(mem.files.has("Knowledge/Courses/Spanish/Lesson 1/Oct 4, 2026.note")).toBe(true);
-    expect(store.index.items.get(lesson.id)!.body).toContain("Today was good");
-    expect(store.index.items.get(course.id)!.body).not.toContain("Today was good");
+    const base = "Knowledge/Courses/UX Certificate";
+    await store.createProgram("UX Certificate", "Intro to UX Design");
+    await store.addCourseToProgram(base, "UX Immersion");
+    const fe = await store.addCourseToProgram(base, "Front-End Development");
+    const l1 = await store.addCourseLesson(fe, "1 - Getting Started with HTML & CSS");
+    const l2 = await store.addCourseLesson(store.index.items.get(fe.id)!, "2 - JavaScript & Your Portfolio Site");
+    expect(store.index.partLabel(store.index.items.get(fe.id)!)).toBe("Part 3 of 3");
+    expect(store.index.partLabel(store.index.programCourses(base)[0])).toBe("Part 1 of 3");
+    expect(store.index.partLabel(l1)).toBe("Lesson 1 of 2");
+    expect(store.index.partLabel(l2)).toBe("Lesson 2 of 2");
+    // PDFs the Front-End page once listed were moved into the lesson folders in Finder
+    const feDir = `${base}/Front-End Development`;
+    const feItem = store.index.items.get(fe.id)!;
+    await store.saveItem({ ...feItem, files: ["1.1 - Start.pdf", "2.1 - JS.pdf"] }, {});
+    mem.dropFile(`${feDir}/${l1.title}/1.1 - Start.pdf`, "PDF");
+    mem.dropFile(`${feDir}/${l2.title}/2.1 - JS.pdf`, "PDF");
+    mem.dropFile(`${feDir}/${l2.title}/2.2 - More.pdf`, "PDF");
+    await store.rescan();
+    const page = store.index.items.get(fe.id)!;
+    expect(store.index.courseFiles(page)).toEqual({ attached: [], inFolder: [] });
+    expect(store.index.courseFiles(store.index.items.get(l1.id)!).inFolder).toEqual(["1.1 - Start.pdf"]);
+    expect(store.index.courseFiles(store.index.items.get(l2.id)!).inFolder).toEqual(["2.1 - JS.pdf", "2.2 - More.pdf"]);
+    expect(store.index.courseParent(store.index.items.get(l1.id)!)?.id).toBe(fe.id);
   });
 });

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { FieldDef, Item } from "../core/types";
-import { dirName, fileName, isBoardFile, isNote, join, today } from "../core/paths";
+import { dirName, join, today } from "../core/paths";
+import { inTauri } from "../core/storage";
 import { displayValue, timeAgo, useStore, type Route } from "./hooks";
 import { LinkPicker } from "./LinkPicker";
 import { renderMarkdown } from "./markdown";
-import { CourseNoteImport, CourseParts } from "./CourseParts";
+import { CourseParts } from "./CourseParts";
 import { hasOverview } from "../core/projects";
 
 const SAVE_DELAY = 700;
@@ -49,6 +50,36 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
     [store],
   );
 
+  // Files dragged in from Finder (the Mac app only) onto a course or lesson page.
+  const [dropping, setDropping] = useState(false);
+  const addDropRef = useRef<(paths: string[]) => void>(() => {});
+  const isCoursePage = stored?.module === "courses";
+  useEffect(() => {
+    if (!inTauri() || !isCoursePage) return;
+    let un: (() => void) | undefined;
+    let cancelled = false;
+    import("@tauri-apps/api/webview").then(({ getCurrentWebview }) =>
+      getCurrentWebview()
+        .onDragDropEvent((e) => {
+          const p = e.payload;
+          if (p.type === "over" || p.type === "enter") setDropping(true);
+          else if (p.type === "leave") setDropping(false);
+          else if (p.type === "drop") {
+            setDropping(false);
+            addDropRef.current(p.paths);
+          }
+        })
+        .then((u) => {
+          if (cancelled) u();
+          else un = u;
+        }),
+    );
+    return () => {
+      cancelled = true;
+      un?.();
+    };
+  }, [isCoursePage]);
+
   if (!draft) {
     return (
       <div className="page">
@@ -91,27 +122,24 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
   const isModulePage = draft.kind === "module";
   const isLog = draft.kind === "docs" || isModulePage;
   const shownFields = isProject || !draft.kind || draft.kind === "lesson" ? mod.fields : [];
-  const ownKeys = isModulePage ? ["App", "Status"] : shownFields.map((f) => f.key);
-  const otherKeys = Object.keys(draft.fields).filter((k) => !ownKeys.includes(k));
   const owner = store.index.projectFor(draft);
   const backlinks = store.index.backlinks(draft.id);
   const folders = store.index.subfolders(draft.module);
   const dir = dirName(draft.path);
-  // Files this page remembers but that aren't in its folder anymore (moved in Finder) are left out of the list.
-  const here = new Set(store.index.entries.filter((e) => dirName(e.path) === dir).map((e) => fileName(e.path)));
-  const attached = draft.module === "courses" ? draft.files.filter((f) => here.has(f)) : draft.files;
-  // A course or lesson has a folder of its own: show every file in it, even ones put there in Finder.
-  const inFolder =
-    draft.module === "courses" && store.index.isCourseFolder(draft)
-      ? store.index.entries
-          .filter((e) => dirName(e.path) === dir && !isNote(e.path) && !isBoardFile(e.path) && !fileName(e.path).startsWith("."))
-          .map((e) => fileName(e.path))
-          .filter((n) => !attached.includes(n))
-          .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
-      : [];
+  // A course or lesson shows the files in its folder (even ones put there in Finder) and not ones moved away.
+  const { attached, inFolder } = draft.module === "courses" ? store.index.courseFiles(draft) : { attached: draft.files, inFolder: [] as string[] };
+  const partLabel = draft.module === "courses" ? store.index.partLabel(draft) : "";
+
+  async function addCourseFilesNow(paths: string[]) {
+    if (!paths.length) return;
+    if (dirtyRef.current) await persist(latest.current!, false);
+    const n = await store.addCourseFiles(store.index.items.get(itemId) ?? latest.current!, paths);
+    setStatus(`${n} file${n === 1 ? "" : "s"} moved into this folder`);
+  }
+  addDropRef.current = addCourseFilesNow;
 
   return (
-    <div className={`page item-page ${embedded ? "embedded" : ""}`}>
+    <div className={`page item-page ${embedded ? "embedded" : ""} ${dropping ? "dropping" : ""}`}>
       <div className="crumbs">
         {!embedded && (
           <>
@@ -136,6 +164,8 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
         autoFocus={draft.title === "Untitled"}
         onFocus={(e) => draft.title === "Untitled" && e.target.select()}
       />
+
+      {partLabel && <p className="muted small no-margin">{partLabel}</p>}
 
       <div className="meta-row">
         {isProject ? (
@@ -254,7 +284,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
 
       {!isProject && <TagInput tags={draft.tags} all={store.index.allTags()} onChange={(tags) => change({ tags }, { now: true })} />}
 
-      {(!isProject || hasOverview(draft.body)) && (
+      {(!isProject || hasOverview(draft.body)) && draft.module !== "courses" && (
       <section className="body-section">
         <div className="section-head">
           <h3>{isLog ? "Notes and build log" : "Notes"}</h3>
@@ -294,26 +324,19 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
         <div className="section-head">
           <h3>Files</h3>
           <span className="row-actions">
-          {draft.module === "courses" && (
-            <CourseNoteImport
-              course={draft}
-              beforeChange={async () => {
-                if (dirtyRef.current) await persist(latest.current!, false);
-              }}
-            />
-          )}
           <button
             className="small-button"
             onClick={async () => {
               const picked = await store.storage.pickFiles();
               if (!picked.length) return;
+              if (draft.module === "courses") return addCourseFilesNow(picked);
               if (dirty) await persist(latest.current!, false);
               const saved = await store.addFiles(store.index.items.get(draft.id) ?? latest.current!, picked);
               setDraft(saved);
               setStatus("Files moved into LifeOS");
             }}
           >
-            + Add files
+            + Add files (or drag them here)
           </button>
           </span>
         </div>
@@ -410,21 +433,6 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
           </ul>
         )}
       </section>
-
-      {!isProject && otherKeys.length > 0 && (
-        <section>
-          <h3>Other fields</h3>
-          <p className="muted small">Saved in the file but not part of this app's field list.</p>
-          <div className="fields">
-            {otherKeys.map((k) => (
-              <label key={k} className="field">
-                <span className="field-label">{k}</span>
-                <input value={displayValue(draft.fields[k])} onChange={(e) => setField(k, e.target.value)} />
-              </label>
-            ))}
-          </div>
-        </section>
-      )}
 
       <footer className="item-foot muted small">
         <span>
