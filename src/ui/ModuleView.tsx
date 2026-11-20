@@ -3,7 +3,6 @@ import { displayValue, useStore, type Route } from "./hooks";
 import { FieldEditor } from "./FieldEditor";
 import { Modal } from "./Modal";
 import { fileName } from "../core/paths";
-import { NOTION_COURSES } from "../core/notion-courses";
 
 export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) => void }) {
   const store = useStore();
@@ -43,18 +42,6 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
     go({ view: "item", id: made.id });
   }
 
-  const toImport =
-    moduleId === "courses" ? store.coursesLeftToImport(NOTION_COURSES) : 0;
-  const [importing, setImporting] = useState(false);
-  async function importCourses() {
-    setImporting(true);
-    try {
-      await store.importCourses(NOTION_COURSES);
-    } finally {
-      setImporting(false);
-    }
-  }
-
   async function add() {
     const item = await store.createItem(moduleId, "Untitled", folder);
     go({ view: "item", id: item.id });
@@ -71,11 +58,6 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
             <button onClick={() => store.storage.mkdir(mod.folder).then(() => store.storage.reveal(mod.folder))}>
               Show in Finder
             </button>
-            {moduleId === "courses" && toImport > 0 && (
-              <button onClick={importCourses} disabled={importing} title="One-time: bring in the courses from your Notion page">
-                {importing ? "Importing…" : `Import my Notion courses (${toImport})`}
-              </button>
-            )}
             {moduleId === "courses" && (
               <button onClick={() => setNewProgram(true)} title="A program is a folder that holds several courses, like a certificate">
                 + New program
