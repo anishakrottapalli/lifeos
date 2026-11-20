@@ -12,7 +12,10 @@ export function CourseParts({ course, go, beforeChange }: { course: Item; go: (r
   const store = useStore();
   const parent = store.index.courseParent(course);
   const program = store.index.programOf(course);
-  const lessons = store.index.courseParts(course).filter((c) => c.kind === "lesson");
+  const kids = store.index.courseParts(course);
+  const lessons = kids.filter((c) => c.kind === "lesson");
+  // Other notes (pages) sitting in this course's or lesson's folder, for example ones made in Finder.
+  const notes = kids.filter((c) => c.kind !== "lesson" && !store.index.isCourseFolder(c));
   const isLesson = course.kind === "lesson";
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
@@ -28,7 +31,25 @@ export function CourseParts({ course, go, beforeChange }: { course: Item; go: (r
         </button>
       </p>
     ) : null;
-  if (isLesson) return back;
+  const notesList = notes.length > 0 && (
+    <section>
+      <h3>Notes in this folder ({notes.length})</h3>
+      <ul className="list">
+        {notes.map((n) => (
+          <li key={n.id} className="row" onClick={() => go({ view: "item", id: n.id })}>
+            <span className="row-title">{n.title}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+  if (isLesson)
+    return (
+      <>
+        {back}
+        {notesList}
+      </>
+    );
 
   async function add() {
     if (!title.trim()) return;
@@ -42,6 +63,7 @@ export function CourseParts({ course, go, beforeChange }: { course: Item; go: (r
   return (
     <>
       {back}
+      {notesList}
       <section>
         <div className="section-head">
           <h3>Lessons{lessons.length ? ` (${lessons.length})` : ""}</h3>

@@ -237,7 +237,7 @@ describe("projects", () => {
     const p = await store.createProject("Old idea");
     await store.deleteProject(p);
     expect(store.index.projects()).toHaveLength(0);
-    expect([...mem.files.keys()].every((k) => k.startsWith(".trash/"))).toBe(true);
+    expect([...mem.files.keys()].every((k) => k.startsWith(".trash/") || k.startsWith(".lifeos/"))).toBe(true);
   });
 });
 
@@ -650,6 +650,61 @@ describe("moving courses over from Notion", () => {
     expect(tech.files).toContain("Technology for Product Managers by Cole Mercer.pdf");
   });
 
+  it("fixes the state an earlier import left: PDFs in lesson folders, and a duplicate course merged", async () => {
+    const { NOTION_COURSES } = await import("./notion-courses");
+    const { mem, store } = await fresh();
+    const base = "Knowledge/Courses";
+    const uxData = NOTION_COURSES.find((c) => c.title === "UX Certificate")!;
+    const fePdfs = [
+      ...uxData.place!["Front-End Development/1 - Getting Started with HTML & CSS"],
+      ...uxData.place!["Front-End Development/2 - JavaScript & Your Portfolio Site"],
+    ];
+    const fm = (id: string, title: string, extra = "") => `---\nid: ${id}\ntitle: "${title}"\n${extra}---\n`;
+    const list = (names: string[]) => (names.length ? `files:\n${names.map((n) => `  - ${n}`).join("\n")}\n` : "");
+    const ux = `${base}/UX Certificate`;
+    mem.dropFile(`${ux}/Intro to UX Design/Intro to UX Design.md`, fm("c1", "Intro to UX Design", `Part: 1\n${list(uxData.place!["Intro to UX Design"])}`));
+    for (const f of uxData.place!["Intro to UX Design"]) mem.dropFile(`${ux}/Intro to UX Design/${f}`, "PDF");
+    mem.dropFile(`${ux}/UX Immersion/UX Immersion.md`, fm("c2", "UX Immersion", "Part: 2\n"));
+    uxData.lessons!["UX Immersion"].forEach((l, i) => mem.dropFile(`${ux}/UX Immersion/${l}/${l}.md`, fm(`im${i}`, l, `kind: lesson\nPart: ${i + 1}\n`)));
+    mem.dropFile(`${ux}/Front-End Development/Front-End Development.md`, fm("c3", "Front-End Development", `Part: 3\n${list(fePdfs)}`));
+    for (const f of fePdfs) mem.dropFile(`${ux}/Front-End Development/${f}`, "PDF");
+    uxData.lessons!["Front-End Development"].forEach((l, i) => mem.dropFile(`${ux}/Front-End Development/${l}/${l}.md`, fm(`fe${i}`, l, `kind: lesson\nPart: ${i + 1}\n`)));
+
+    const pmData = NOTION_COURSES.find((c) => c.title === "Become a Product Manager")!;
+    const pm = `${base}/Become a Product Manager`;
+    pmData.parts!.forEach((p, i) => {
+      const t = p.split("|")[0].trim();
+      mem.dropFile(`${pm}/${t.replace(":", "")}/${t.replace(":", "")}.md`, fm(`pm${i}`, t, `Part: ${i + 1}\n`));
+    });
+    mem.dropFile(`${pm}/Technology for Product Managers by Cole Mercer/Technology for Product Managers by Cole Mercer.md`, fm("extra", "Technology for Product Managers by Cole Mercer", list(["Technology for Product Managers by Cole Mercer.pdf"])));
+    mem.dropFile(`${pm}/Technology for Product Managers by Cole Mercer/Technology for Product Managers by Cole Mercer.pdf`, "PDF");
+    await store.rescan();
+
+    const wanted = NOTION_COURSES.filter((c) => c.title === "UX Certificate" || c.title === "Become a Product Manager");
+    expect(store.coursesLeftToImport(wanted)).toBe(2);
+    await store.importCourses(wanted);
+    expect(store.coursesLeftToImport(wanted)).toBe(0);
+
+    const l1 = "1 - Getting Started with HTML & CSS";
+    const l2 = "2 - JavaScript & Your Portfolio Site";
+    expect(mem.files.has(`${ux}/Front-End Development/${l1}/1.1-Getting Started with Your Frontend Course.pdf`)).toBe(true);
+    expect(mem.files.has(`${ux}/Front-End Development/${l2}/2.6 - Portfolio Site Demo & Case Study.pdf`)).toBe(true);
+    expect(mem.files.has(`${ux}/Front-End Development/1.2 - Internet & the Web.pdf`)).toBe(false);
+    const lesson1 = store.index.items.get("fe0")!;
+    expect(lesson1.files).toHaveLength(8);
+    expect(store.index.items.get("fe1")!.files).toHaveLength(6);
+    expect(store.index.items.get("c3")!.files).toEqual([]);
+    expect(store.index.items.get("c1")!.files).toHaveLength(7); // Intro to UX Design keeps its own
+    // the duplicate "by Cole Mercer" folder is merged into the real course; nothing is lost
+    const tech = `${pm}/Technology for Product Managers`;
+    expect(mem.files.has(`${tech}/Technology for Product Managers by Cole Mercer.pdf`)).toBe(true);
+    expect(mem.files.has(`${tech}/Technology for Product Managers by Cole Mercer.md`)).toBe(true);
+    expect(mem.files.has(`${pm}/Technology for Product Managers by Cole Mercer/Technology for Product Managers by Cole Mercer.pdf`)).toBe(false);
+    expect(store.index.items.get("pm7")!.files).toContain("Technology for Product Managers by Cole Mercer.pdf");
+    expect(store.index.items.get("extra")?.path).toBe(`${tech}/Technology for Product Managers by Cole Mercer.md`);
+    expect(store.index.courseParts(store.index.items.get("pm7")!).map((n) => n.title)).toEqual(["Technology for Product Managers by Cole Mercer"]);
+  });
+
   it("a program page that has your own text on it is kept, and no course is made twice", async () => {
     const { NOTION_COURSES } = await import("./notion-courses");
     const { mem, store } = await fresh();
@@ -664,6 +719,29 @@ describe("moving courses over from Notion", () => {
     expect(store.index.courseParts(page).map((c) => c.title)).toEqual(["Intro to UX Design", "UX Immersion", "Front-End Development"]);
     expect([...mem.files.keys()].filter((k) => k.includes("Intro to UX Design") && k.endsWith(".md"))).toHaveLength(1);
     expect(store.coursesLeftToImport(wanted)).toBe(0);
+  });
+
+  it("everything already in Courses is marked Completed once; later courses keep their own status", async () => {
+    const mem = new MemoryStorage(false);
+    mem.dropFile("Knowledge/Courses/Old Course.md", '---\nid: o1\ntitle: "Old Course"\nStatus: Want\n---\n');
+    mem.dropFile("Knowledge/Courses/Prog/Prog Course/Prog Course.md", '---\nid: o2\ntitle: "Prog Course"\n---\n');
+    mem.dropFile("Knowledge/Courses/Done Course.md", '---\nid: o3\ntitle: "Done Course"\nStatus: Done\n---\n');
+    const store = new LifeStore(mem);
+    await store.init();
+    for (const id of ["o1", "o2", "o3"]) expect(store.index.items.get(id)!.fields["Status"]).toBe("Completed");
+    expect(mem.files.has(".lifeos/courses-status-completed")).toBe(true);
+    const fresh1 = await store.createItem("courses", "New One", "", {});
+    await store.openRoot("");
+    expect(store.index.items.get(fresh1.id)!.fields["Status"]).toBeUndefined();
+  });
+
+  it("imported courses, their courses and lessons are all Completed", async () => {
+    const { NOTION_COURSES } = await import("./notion-courses");
+    const { store } = await fresh();
+    await store.importCourses(NOTION_COURSES);
+    const all = store.index.inModule("courses");
+    expect(all.length).toBeGreaterThan(40);
+    expect(all.every((i) => i.fields["Status"] === "Completed")).toBe(true);
   });
 
   it("a new program, adding a course to it, and renaming it", async () => {

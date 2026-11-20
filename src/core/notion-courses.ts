@@ -1,10 +1,11 @@
 // One-time move of the Courses page from Notion into LifeOS (copied from the page on 2026-11-19).
-// Completed -> Done, Up Next -> Want, Ongoing -> In progress. The "parts" of a program go in the course's text.
+// Everything is imported as Completed (the owner asked for that). The original sections were Completed, Up Next and Ongoing.
 
 export interface NotionCourse {
   title: string;
   provider?: string;
   instructor?: string;
+  /** Where it was in Notion. Everything is saved as Completed when imported. */
   status: "Want" | "In progress" | "Done";
   parts?: string[];
   /** Lessons inside one of the parts, by that part's title. */

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { displayValue, timeAgo, useStore, type Route } from "./hooks";
+import { displayValue, useStore, type Route } from "./hooks";
 import { FieldEditor } from "./FieldEditor";
 import { Modal } from "./Modal";
 import { fileName } from "../core/paths";
@@ -136,18 +136,15 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
               {columns.map((c) => (
                 <th key={c.key}>{c.key}</th>
               ))}
-              <th>Folder</th>
-              <th>Updated</th>
             </tr>
           </thead>
           <tbody>
             {programRows.map((d) => (
               <tr key={d} onClick={() => go({ view: "program", dir: d })}>
                 <td className="strong">🗂 {fileName(d)}</td>
-                <td className="muted" colSpan={columns.length + 1}>
+                <td className="muted" colSpan={columns.length}>
                   Program · {store.index.programCourses(d).length} courses
                 </td>
-                <td className="muted small" />
               </tr>
             ))}
             {shown.map((i) => (
@@ -159,8 +156,6 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
                 {columns.map((c) => (
                   <td key={c.key}>{displayValue(i.fields[c.key])}</td>
                 ))}
-                <td className="muted">{i.folder}</td>
-                <td className="muted small">{timeAgo(i.updated)}</td>
               </tr>
             ))}
           </tbody>
