@@ -42,8 +42,18 @@ sleep 1
 rm -rf "/Applications/LifeOS.app"
 ditto "$APP" "/Applications/LifeOS.app" || fail "couldn't copy LifeOS into Applications."
 
+# Tell macOS about the new copy (it can remember the old one and say "the executable is missing").
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "/Applications/LifeOS.app" >/dev/null 2>&1
+
 echo ""
 echo "Done! Opening LifeOS…"
-open "/Applications/LifeOS.app"
+if ! open "/Applications/LifeOS.app"; then
+  # If macOS still refuses to open it the normal way, start the program inside it directly.
+  echo "Starting LifeOS another way…"
+  BIN="$(ls /Applications/LifeOS.app/Contents/MacOS/* 2>/dev/null | head -1)"
+  if [ -n "$BIN" ]; then
+    nohup "$BIN" >/dev/null 2>&1 &
+  fi
+fi
 sleep 2
 exit 0
