@@ -640,3 +640,51 @@ describe("the artboard's pages (tabs in the sidebar, icons on the artboard)", ()
     expect(cardKey({ id: "3", type: "text", x: 0, y: 0 })).toBe("t:3");
   });
 });
+
+describe("loose files in Courses", () => {
+  it("files inside a course or lesson folder (and hidden files) are not 'loose'; only real strays are", async () => {
+    const { mem, store } = await fresh();
+    const base = "Knowledge/Courses/UX Certificate";
+    await store.createProgram("UX Certificate", "Intro to UX Design");
+    const fe = await store.addCourseToProgram(base, "Front-End Development");
+    const l1 = await store.addCourseLesson(fe, "1 - Getting Started with HTML & CSS");
+    mem.dropFile(`${base}/Front-End Development/1.2 - Internet & the Web.pdf`, "PDF"); // in the course's folder
+    mem.dropFile(`${base}/Front-End Development/${l1.title}/1.1 - Start.pdf`, "PDF"); // in the lesson's folder
+    mem.dropFile("Knowledge/Courses/.DS_Store", "x");
+    mem.dropFile(`${base}/Front-End Development Notes Week 3.pdf`, "PDF"); // a real stray, beside the course folders
+    mem.dropFile("Knowledge/Courses/Random.pdf", "PDF");
+    await store.rescan();
+    expect(store.index.unfiled("courses").map((e) => e.path).sort()).toEqual([
+      "Knowledge/Courses/Random.pdf",
+      `${base}/Front-End Development Notes Week 3.pdf`,
+    ]);
+  });
+
+  it("Put in… moves a stray into a course or lesson and lists it on that page; suggests by name", async () => {
+    const { mem, store } = await fresh();
+    const base = "Knowledge/Courses/UX Certificate";
+    await store.createProgram("UX Certificate", "Intro to UX Design");
+    const fe = await store.addCourseToProgram(base, "Front-End Development");
+    const l1 = await store.addCourseLesson(fe, "1 - Getting Started with HTML & CSS");
+    mem.dropFile(`${base}/Front-End Development Notes Week 3.pdf`, "PDF");
+    await store.rescan();
+    const stray = `${base}/Front-End Development Notes Week 3.pdf`;
+    expect(store.index.suggestCourse("Front-End Development Notes Week 3.pdf")?.id).toBe(fe.id);
+    expect(store.index.suggestCourse("Random.pdf")).toBeUndefined();
+    const labels = store.index.courseTargets().map((t) => t.label);
+    expect(labels).toContain("UX Certificate → Front-End Development → 1 - Getting Started with HTML & CSS");
+    expect(labels).toContain("UX Certificate → Intro to UX Design");
+    await store.moveLooseFileToCourse(stray, l1.id);
+    expect(mem.files.has(stray)).toBe(false);
+    expect(mem.files.has(`${base}/Front-End Development/${l1.title}/Front-End Development Notes Week 3.pdf`)).toBe(true);
+    expect(store.index.items.get(l1.id)!.files).toEqual(["Front-End Development Notes Week 3.pdf"]);
+    expect(store.index.unfiled("courses")).toEqual([]);
+    // a course on its own gets a folder first
+    const solo = await store.createItem("courses", "Spanish", "", {});
+    mem.dropFile("Knowledge/Courses/verbs.pdf", "PDF");
+    await store.rescan();
+    await store.moveLooseFileToCourse("Knowledge/Courses/verbs.pdf", solo.id);
+    expect(mem.files.has("Knowledge/Courses/Spanish/verbs.pdf")).toBe(true);
+    expect(store.index.items.get(solo.id)!.path).toBe("Knowledge/Courses/Spanish/Spanish.md");
+  });
+});

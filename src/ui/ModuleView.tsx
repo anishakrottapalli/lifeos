@@ -147,7 +147,11 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
       {loose.length > 0 && (
         <section className="loose">
           <h2>Loose files</h2>
-          <p className="muted small">Files in this folder that aren't attached to an item (for example, dropped in through Finder).</p>
+          <p className="muted small">
+            {moduleId === "courses"
+              ? "Files that aren't in a course or lesson folder. Use Put in… to move one into the right course or lesson."
+              : "Files in this folder that aren't attached to an item (for example, dropped in through Finder)."}
+          </p>
           <ul className="list">
             {loose.map((e) => (
               <li key={e.path} className="row">
@@ -156,15 +160,36 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
                 <span className="muted small">{e.path.slice(mod.folder.length + 1)}</span>
                 <span className="right row-actions">
                   <button onClick={() => store.storage.open(e.path)}>Open</button>
-                  <button
-                    className="primary"
-                    onClick={async () => {
-                      const item = await store.fileLooseFile(moduleId, e.path);
-                      go({ view: "item", id: item.id });
-                    }}
-                  >
-                    Make item
-                  </button>
+                  {moduleId === "courses" ? (
+                    <select
+                      value=""
+                      title="Move this file into a course or lesson"
+                      onChange={async (ev) => ev.target.value && store.moveLooseFileToCourse(e.path, ev.target.value)}
+                    >
+                      <option value="">{store.index.suggestCourse(fileName(e.path)) ? "Put in… (suggested first)" : "Put in…"}</option>
+                      {(() => {
+                        const hint = store.index.suggestCourse(fileName(e.path));
+                        const targets = store.index.courseTargets();
+                        const ordered = hint ? [...targets.filter((t) => t.item.id === hint.id), ...targets.filter((t) => t.item.id !== hint.id)] : targets;
+                        return ordered.map((t) => (
+                          <option key={t.item.id} value={t.item.id}>
+                            {t.item.id === hint?.id ? "★ " : ""}
+                            {t.label}
+                          </option>
+                        ));
+                      })()}
+                    </select>
+                  ) : (
+                    <button
+                      className="primary"
+                      onClick={async () => {
+                        const item = await store.fileLooseFile(moduleId, e.path);
+                        go({ view: "item", id: item.id });
+                      }}
+                    >
+                      Make item
+                    </button>
+                  )}
                 </span>
               </li>
             ))}
