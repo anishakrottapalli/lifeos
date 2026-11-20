@@ -1,11 +1,12 @@
-// A project's Board: a freeform canvas, like a Figma board. Text cards,
-// pictures, videos and files sit wherever you drag them, and the project's
-// pages (Overview, Market Research, Documentation…) sit on it as cards you
-// click to open. Files dropped on the Board are moved into the project's
-// folder; the layout is saved in the project note (its `board:` list).
+// A project's artboard, like a Figma board. Text cards and pictures and videos sit
+// wherever you drag them; the project's pages (Overview, Market Research…) and other
+// files are small desktop-style icons: click one to select it, double-click to open it.
+// The sidebar lists the same things (see ProjectView). Files dropped on the artboard are
+// moved into the project's folder; the layout is saved in the project file (its `board:` list).
 
 import { useEffect, useRef, useState } from "react";
 import type { BoardCard, Item } from "../core/types";
+import type { LifeIndex } from "../core/index";
 import { dirName, extName, join } from "../core/paths";
 import { ALL_PARTS, DOCS_KEY, OVERVIEW_KEY, VENTURE_PART_KEYS, hasOverview } from "../core/projects";
 import { inTauri } from "../core/storage";
@@ -27,22 +28,12 @@ function fileKind(name: string): Kind {
   return "other";
 }
 
-/** A short plain-text taste of a page, for its card. */
-function snippet(body: string): string {
-  const lines = body
-    .split("\n")
-    .map((l) => l.replace(/^#+\s*|^[-*]\s*|\*\*|\|/g, "").trim())
-    .filter((l) => l && !/^-+$/.test(l));
-  const s = lines.slice(0, 3).join(" · ");
-  return s.length > 120 ? s.slice(0, 117) + "…" : s;
-}
-
 /** Rough height of a card before it's on screen (pictures are tall, pages are short). */
 function guessHeight(c: BoardCard): number {
-  if (c.type === "page") return 110;
+  if (c.type === "page") return 100;
   if (c.type === "text") return 120;
   const k = fileKind(c.file ?? "");
-  return k === "other" ? 70 : Math.round((c.w ?? 260) * 0.75) + 30;
+  return k === "image" || k === "video" ? Math.round((c.w ?? 260) * 0.75) + 30 : 100;
 }
 
 interface Box {
@@ -64,24 +55,31 @@ function freeSpot(taken: Box[], w: number, h: number, start: { x: number; y: num
   return start;
 }
 
-interface PageInfo {
+export interface PageInfo {
   key: string;
   title: string;
-  body: string;
   open: Route;
 }
+
+/** The project's pages, in order: Overview (when it has one), its sections, then Documentation. */
+export function projectPages(index: LifeIndex, project: Item): PageInfo[] {
+  const parts = index.partsOf(project);
+  const pages: PageInfo[] = [];
+  if (hasOverview(project.body)) pages.push({ key: OVERVIEW_KEY, title: "Overview", open: { view: "item", id: project.id, page: "details" } });
+  for (const s of parts.sections) pages.push({ key: s.id, title: s.title, open: { view: "item", id: s.id } });
+  if (parts.docs) pages.push({ key: parts.docs.id, title: "Documentation", open: { view: "item", id: parts.docs.id } });
+  return pages;
+}
+
+/** Which card a sidebar entry or an icon stands for. */
+export const cardKey = (c: BoardCard) => (c.type === "page" ? `p:${c.page}` : c.type === "file" ? `f:${c.file}` : `t:${c.id}`);
 
 export function Board({ project, go }: { project: Item; go: (r: Route) => void }) {
   const store = useStore();
   const parts = store.index.partsOf(project);
   const dir = dirName(project.path);
 
-  // The project's pages, in order.
-  const pages: PageInfo[] = [];
-  if (hasOverview(project.body))
-    pages.push({ key: OVERVIEW_KEY, title: "Overview", body: project.body, open: { view: "item", id: project.id, page: "details" } });
-  for (const s of parts.sections) pages.push({ key: s.id, title: s.title, body: s.body, open: { view: "item", id: s.id } });
-  if (parts.docs) pages.push({ key: parts.docs.id, title: "Documentation", body: parts.docs.body, open: { view: "item", id: parts.docs.id } });
+  const pages = projectPages(store.index, project);
 
   // Saved cards, plus a bcard for any page or file that isn't on the Board yet.
   function withMissing(saved: BoardCard[]): BoardCard[] {
@@ -99,10 +97,13 @@ export function Board({ project, go }: { project: Item; go: (r: Route) => void }
       out.push(placed);
     };
     for (const p of pages) {
-      if (!onBoard.has(`p:${p.key}`)) place({ id: `auto-p-${p.key}`, type: "page", page: p.key, x: 0, y: 0, w: 200 });
+      if (!onBoard.has(`p:${p.key}`)) place({ id: `auto-p-${p.key}`, type: "page", page: p.key, x: 0, y: 0, w: 96 });
     }
     for (const f of project.files) {
-      if (!onBoard.has(`f:${f}`)) place({ id: `auto-f-${f}`, type: "file", file: f, x: 0, y: 0, w: 260 });
+      if (!onBoard.has(`f:${f}`)) {
+        const media = fileKind(f) === "image" || fileKind(f) === "video";
+        place({ id: `auto-f-${f}`, type: "file", file: f, x: 0, y: 0, w: media ? 260 : 96 });
+      }
     }
     return out;
   }
@@ -116,6 +117,33 @@ export function Board({ project, go }: { project: Item; go: (r: Route) => void }
   const boardEl = useRef<HTMLDivElement>(null);
   const [adding, setAdding] = useState("");
   const [status, setStatus] = useState("");
+  const [selected, setSelected] = useState("");
+  const [reading, setReading] = useState(""); // a Markdown file open in the reader
+  const lastClick = useRef({ key: "", at: 0 });
+
+  /** One click selects; a second click on the same icon within a moment opens it. */
+  function clickIcon(key: string, open: () => void) {
+    const now = Date.now();
+    if (lastClick.current.key === key && now - lastClick.current.at < 450) {
+      lastClick.current = { key: "", at: 0 };
+      open();
+      return;
+    }
+    lastClick.current = { key, at: now };
+    setSelected(key);
+  }
+
+  // The sidebar can select something on the artboard (like picking a layer in Figma).
+  useEffect(() => {
+    const onPick = (e: Event) => {
+      const key = String((e as CustomEvent).detail ?? "");
+      setSelected(key);
+      const el = boardEl.current?.querySelector<HTMLElement>(`[data-key="${CSS.escape(key)}"]`);
+      el?.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+    };
+    window.addEventListener("board-select", onPick);
+    return () => window.removeEventListener("board-select", onPick);
+  }, []);
 
   useEffect(() => {
     if (!busy.current) setCards(withMissing(project.board ?? []));
@@ -361,28 +389,58 @@ export function Board({ project, go }: { project: Item; go: (r: Route) => void }
       )}
 
       <div className={`board ${dropping ? "dropping" : ""}`} ref={boardEl}>
-        <div className="board-canvas" style={{ width, height }}>
+        <div
+          className="board-canvas"
+          style={{ width, height }}
+          onPointerDown={(e) => e.target === e.currentTarget && setSelected("")}
+        >
           {cards.map((c) => {
+            const key = cardKey(c);
+            const isSel = selected === key;
             const style = { left: c.x, top: c.y, width: c.w ?? 240 };
-            if (c.type === "page") {
-              const p = pages.find((pp) => pp.key === c.page)!;
+            const media = c.type === "file" && (fileKind(c.file ?? "") === "image" || fileKind(c.file ?? "") === "video");
+
+            // Pages and other files are desktop-style icons.
+            if (c.type === "page" || (c.type === "file" && !media)) {
+              const page = c.type === "page" ? pages.find((pp) => pp.key === c.page) : undefined;
+              if (c.type === "page" && !page) return null;
+              const name = c.type === "page" ? page!.title : c.file ?? "";
+              const kind = c.type === "file" ? fileKind(name) : "page";
+              const open = () => {
+                if (page) go(page.open);
+                else if (kind === "markdown") setReading(name);
+                else store.storage.open(join(dir, name));
+              };
               return (
                 <div
                   key={c.id}
                   data-card={c.id}
-                  className="bcard bcard-page"
-                  style={style}
-                  onPointerDown={(e) => startDrag(e, c, "move", () => go(p.open))}
-                  title="Click to open · drag to move"
+                  data-key={key}
+                  className={`bicon ${isSel ? "selected" : ""}`}
+                  style={{ left: c.x, top: c.y }}
+                  onPointerDown={(e) => startDrag(e, c, "move", () => clickIcon(key, open))}
+                  title="Double-click to open · drag to move"
                 >
-                  <div className="bcard-page-title">📄 {p.title}</div>
-                  <div className="muted small">{snippet(p.body) || "Empty"}</div>
-                  <span className="bcard-resize" onPointerDown={(e) => startDrag(e, c, "resize")} />
+                  <div className="bicon-img">{kind === "page" ? "📄" : kind === "markdown" ? "📝" : "📎"}</div>
+                  <div className="bicon-label">{name}</div>
+                  {isSel && c.type === "file" && (
+                    <button className="bcard-x bicon-x" onPointerDown={(e) => e.stopPropagation()} onClick={() => remove(c)} title="Move to trash">
+                      ×
+                    </button>
+                  )}
                 </div>
               );
             }
+
             return (
-              <div key={c.id} data-card={c.id} className={`bcard bcard-type-${c.type}`} style={style}>
+              <div
+                key={c.id}
+                data-card={c.id}
+                data-key={key}
+                className={`bcard bcard-type-${c.type} ${isSel ? "selected" : ""}`}
+                style={style}
+                onPointerDownCapture={() => setSelected(key)}
+              >
                 <div className="bcard-grip" onPointerDown={(e) => startDrag(e, c, "move")} title="Drag to move">
                   <span className="bcard-grip-label">{c.type === "file" ? c.file : "Text"}</span>
                   <button
@@ -413,6 +471,7 @@ export function Board({ project, go }: { project: Item; go: (r: Route) => void }
           )}
         </div>
       </div>
+      {reading && <MarkdownReader path={join(dir, reading)} name={reading} close={() => setReading("")} />}
     </div>
   );
 }
@@ -438,19 +497,19 @@ function AutoText({ value, onChange }: { value: string; onChange: (v: string) =>
   );
 }
 
+/** A picture or video card on the artboard. */
 function FileBody({ path, name }: { path: string; name: string }) {
   const store = useStore();
   const kind = fileKind(name);
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
-    if (kind === "image" || kind === "video") store.storage.fileUrl(path).then((u) => alive && setUrl(u));
+    store.storage.fileUrl(path).then((u) => alive && setUrl(u));
     return () => {
       alive = false;
     };
-  }, [path, kind, store.storage]);
+  }, [path, store.storage]);
 
-  if (kind === "markdown") return <MarkdownBody path={path} name={name} />;
   if (kind === "image" && url) {
     return <img className="bcard-media" src={url} alt={name} draggable={false} onDoubleClick={() => store.storage.open(path)} title="Double-click to open" />;
   }
@@ -459,76 +518,62 @@ function FileBody({ path, name }: { path: string; name: string }) {
   }
   return (
     <button className="bcard-file" onClick={() => store.storage.open(path)} title="Open">
-      <span className="bcard-file-icon">{kind === "image" ? "🖼️" : kind === "video" ? "🎬" : "📎"}</span>
+      <span className="bcard-file-icon">{kind === "image" ? "🖼️" : "🎬"}</span>
       <span>{name}</span>
     </button>
   );
 }
 
-/** A Markdown file on the Board: a taste of it in the card, the whole thing in a big window when clicked. */
-function MarkdownBody({ path, name }: { path: string; name: string }) {
+/** A Markdown file opened from the artboard: read it in a big window, and edit it there. */
+function MarkdownReader({ path, name, close }: { path: string; name: string; close: () => void }) {
   const store = useStore();
   const [text, setText] = useState<string | null>(null);
-  const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
-  const editingRef = useRef(false);
   const headRef = useRef(""); // fields at the top of the file, kept as they were
-  editingRef.current = editing;
   useEffect(() => {
     let alive = true;
-    const load = () =>
-      store.storage.read(path).then((t) => {
-        if (!alive || editingRef.current) return;
-        const raw = t ?? "";
-        const head = raw.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/)?.[0] ?? "";
-        headRef.current = head;
-        setText(raw.slice(head.length));
-      });
-    load();
-    const off = store.storage.onChange(load);
+    store.storage.read(path).then((t) => {
+      if (!alive) return;
+      const raw = t ?? "";
+      const head = raw.match(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/)?.[0] ?? "";
+      headRef.current = head;
+      setText(raw.slice(head.length));
+    });
     return () => {
       alive = false;
-      off();
     };
   }, [path, store.storage]);
 
   return (
-    <>
-      <button className="bcard-file bcard-md" onClick={() => setOpen(true)} title="Click to read the whole file">
-        <span className="bcard-md-text">{text === null ? "…" : snippet(text) || "Empty file"}</span>
-      </button>
-      {open && (
-        <Modal close={() => setOpen(false)}>
-          <div className="md-reader">
-            <h2>{name.replace(/\.[^.]+$/, "")}</h2>
-            {editing ? (
-              <textarea className="body-input" autoFocus value={text ?? ""} onChange={(e) => setText(e.target.value)} />
-            ) : (
-              <div className="markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(text || "*Nothing written yet.*") }} />
-            )}
-            <div className="modal-actions">
-              {editing ? (
-                <button
-                  className="primary"
-                  onClick={async () => {
-                    await store.storage.write(path, headRef.current + (text ?? ""));
-                    setEditing(false);
-                  }}
-                >
-                  Save
-                </button>
-              ) : (
-                <>
-                  <button onClick={() => setEditing(true)}>Edit</button>
-                  <button className="primary" onClick={() => setOpen(false)}>
-                    Close
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        </Modal>
-      )}
-    </>
+    <Modal close={close}>
+      <div className="md-reader">
+        <h2>{name.replace(/\.[^.]+$/, "")}</h2>
+        {editing ? (
+          <textarea className="body-input" autoFocus value={text ?? ""} onChange={(e) => setText(e.target.value)} />
+        ) : (
+          <div className="markdown" dangerouslySetInnerHTML={{ __html: renderMarkdown(text === null ? "…" : text || "*Nothing written yet.*") }} />
+        )}
+        <div className="modal-actions">
+          {editing ? (
+            <button
+              className="primary"
+              onClick={async () => {
+                await store.storage.write(path, headRef.current + (text ?? ""));
+                setEditing(false);
+              }}
+            >
+              Save
+            </button>
+          ) : (
+            <>
+              <button onClick={() => setEditing(true)}>Edit</button>
+              <button className="primary" onClick={close}>
+                Close
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </Modal>
   );
 }

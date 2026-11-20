@@ -300,3 +300,10 @@ ul.plain { margin: 6px 0 0; padding-left: 18px; line-height: 1.7; }
 .journal-rec .journal-img { width: 120px; }
 .md-video { display: block; max-width: 100%; border-radius: var(--radius); margin: 10px 0; }
 .journal-preview { margin-top: 2px; }
+.bicon { position: absolute; width: 96px; padding: 6px 4px 8px; text-align: center; border-radius: 8px; border: 2px solid transparent; -webkit-user-select: none; user-select: none; cursor: default; }
+.bicon:hover { background: var(--hover); }
+.bicon.selected { border-color: var(--accent); background: var(--hover); }
+.bicon-img { font-size: 40px; line-height: 1.15; }
+.bicon-label { font-size: 12px; line-height: 1.3; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.bicon-x { position: absolute; top: 0; right: 2px; }
+.bcard.selected { border-color: var(--accent); }
