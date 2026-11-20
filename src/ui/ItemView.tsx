@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { FieldDef, Item } from "../core/types";
-import { dirName, join, today } from "../core/paths";
+import { dirName, fileName, isBoardFile, isNote, join, today } from "../core/paths";
 import { displayValue, timeAgo, useStore, type Route } from "./hooks";
 import { LinkPicker } from "./LinkPicker";
 import { renderMarkdown } from "./markdown";
@@ -97,6 +97,15 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
   const backlinks = store.index.backlinks(draft.id);
   const folders = store.index.subfolders(draft.module);
   const dir = dirName(draft.path);
+  // A course or lesson has a folder of its own: show every file in it, even ones put there in Finder.
+  const inFolder =
+    draft.module === "courses" && store.index.isCourseFolder(draft)
+      ? store.index.entries
+          .filter((e) => dirName(e.path) === dir && !isNote(e.path) && !isBoardFile(e.path) && !fileName(e.path).startsWith("."))
+          .map((e) => fileName(e.path))
+          .filter((n) => !draft.files.includes(n))
+          .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+      : [];
 
   return (
     <div className={`page item-page ${embedded ? "embedded" : ""}`}>
@@ -305,7 +314,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
           </button>
           </span>
         </div>
-        {draft.files.length === 0 ? (
+        {draft.files.length === 0 && inFolder.length === 0 ? (
           <p className="muted small">No files. Added files are moved (not copied) into this item's folder.</p>
         ) : (
           <ul className="list">
@@ -322,6 +331,16 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
                   >
                     Detach
                   </button>
+                </span>
+              </li>
+            ))}
+            {inFolder.map((f) => (
+              <li key={"in:" + f} className="row">
+                <span className="row-icon">📄</span>
+                <span className="row-title">{f}</span>
+                <span className="right row-actions">
+                  <button onClick={() => store.storage.open(join(dir, f))}>Open</button>
+                  <button onClick={() => store.storage.reveal(join(dir, f))}>Show</button>
                 </span>
               </li>
             ))}

@@ -138,6 +138,7 @@ export const DEFAULT_MODULES: ModuleDef[] = [
     fields: [
       f("Instructor"),
       f("Link", "url"),
+      f("Status", "select", ["Up Next", "Ongoing", "Completed"]),
     ],
   },
   {
