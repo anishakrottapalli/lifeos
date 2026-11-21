@@ -102,6 +102,23 @@ fn walk(root: &Path, dir: &Path, out: &mut Vec<Entry>) {
     }
 }
 
+/// Remove a folder only if it is completely empty. `remove_dir` itself refuses a folder with anything in it
+/// (hidden files included), so this can never delete a file.
+fn remove_if_empty(dir: &Path) -> bool {
+    dir.is_dir() && fs::remove_dir(dir).is_ok()
+}
+
+/// Remove an old folder (inside LifeOS) once everything has been moved out of it. Returns true if it was
+/// empty and is gone; false if it isn't there or still has something in it (then nothing is touched).
+#[tauri::command]
+fn remove_empty_dir(state: State<AppState>, path: String) -> Result<bool, String> {
+    if path.trim().is_empty() {
+        return Err("No folder given.".to_string());
+    }
+    let root = root_of(&state)?;
+    Ok(remove_if_empty(&safe_join(&root, &path)?))
+}
+
 /// Move a file, falling back to copy + delete when the source is on another
 /// drive (a plain rename can't cross drives).
 fn move_file(from: &Path, to: &Path) -> Result<(), String> {
@@ -379,6 +396,7 @@ pub fn run() {
             make_dir,
             import_file,
             write_bytes,
+            remove_empty_dir,
             read_bytes,
             full_path,
             open_in_os,
@@ -391,6 +409,21 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn remove_if_empty_only_removes_an_empty_folder() {
+        let dir = std::env::temp_dir().join(format!("lifeos-rm-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join("Empty")).unwrap();
+        fs::create_dir_all(dir.join("Full")).unwrap();
+        fs::write(dir.join("Full/.DS_Store"), "x").unwrap();
+        assert!(remove_if_empty(&dir.join("Empty")));
+        assert!(!dir.join("Empty").exists());
+        assert!(!remove_if_empty(&dir.join("Full")));
+        assert!(dir.join("Full/.DS_Store").exists());
+        assert!(!remove_if_empty(&dir.join("Missing")));
+        fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn percent_decode_works() {

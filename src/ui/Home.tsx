@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { GROUPS } from "../core/modules";
 import { timeAgo, useStore, type Route } from "./hooks";
 
 export function Home({ go }: { go: (r: Route) => void }) {
@@ -47,7 +46,7 @@ export function Home({ go }: { go: (r: Route) => void }) {
         ) : (
           <ul className="list">
             {recent.map((i) => {
-              const m = store.module(i.module);
+              const m = store.module(store.index.hostId(i.module));
               return (
                 <li key={i.id} className="row" onClick={() => go({ view: "item", id: i.id })}>
                   <span className="row-icon">{m?.icon}</span>
@@ -63,26 +62,22 @@ export function Home({ go }: { go: (r: Route) => void }) {
 
       <section>
         <h2>Apps</h2>
-        {GROUPS.map((g) => (
-          <div key={g} className="app-group">
-            <div className="nav-group-title">{g}</div>
-            <div className="app-grid">
-              {store.modules
-                .filter((m) => m.group === g)
-                .map((m) => (
-                  <button key={m.id} className="app-card" onClick={() => go({ view: "module", id: m.id })}>
-                    <span className="app-card-icon">{m.icon}</span>
-                    <span className="app-card-name">{m.name}</span>
-                    <span className="muted small">{(() => {
-                        const n = store.index.countFor(m.id);
-                        return `${n} item${n === 1 ? "" : "s"}`;
-                      })()}
-                    </span>
-                  </button>
-                ))}
-            </div>
-          </div>
-        ))}
+        <div className="app-grid">
+          {store.modules
+            .filter((m) => !m.hidden)
+            .map((m) => (
+              <button key={m.id} className="app-card" onClick={() => go({ view: "module", id: m.id })}>
+                <span className="app-card-icon">{m.icon}</span>
+                <span className="app-card-name">{m.name}</span>
+                <span className="muted small">
+                  {(() => {
+                    const n = store.index.countFor(m.id);
+                    return `${n} item${n === 1 ? "" : "s"}`;
+                  })()}
+                </span>
+              </button>
+            ))}
+        </div>
       </section>
     </div>
   );

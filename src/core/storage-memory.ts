@@ -40,7 +40,7 @@ Status: Active
 
 Divisions: Content, Software, Services.
 `,
-  "Life/Plan/Create a business.md": `---
+  "Life/Create a business.md": `---
 id: lo-demo-goal
 module: life
 title: Create a business
@@ -53,7 +53,7 @@ Section: Goal
 Status: In progress
 ---
 `,
-  "Knowledge/Quotes & Tweets/Be the main character.md": `---
+  "Wisdom Drops/Quotes & Tweets/Be the main character.md": `---
 id: lo-demo-quote
 module: quotes
 title: Be the main character
@@ -145,16 +145,30 @@ export class MemoryStorage implements Storage {
         this.files.set(to + p.slice(from.length), f);
       }
     }
+    for (const d of [...this.dirs]) {
+      if (d === from || d.startsWith(from + "/")) {
+        this.dirs.delete(d);
+        this.dirs.add(to + d.slice(from.length));
+      }
+    }
     this.changed();
   }
   async exists(path: string) {
-    if (this.files.has(path)) return true;
+    if (this.files.has(path) || this.dirs.has(path)) return true;
     for (const k of this.files.keys()) if (k.startsWith(path + "/")) return true;
+    for (const d of this.dirs) if (d.startsWith(path + "/")) return true;
     return false;
   }
   dirs = new Set<string>();
   async mkdir(path: string) {
     this.dirs.add(path);
+  }
+  async removeEmptyDir(path: string) {
+    for (const k of this.files.keys()) if (k.startsWith(path + "/")) return false;
+    const there = this.dirs.has(path) || [...this.dirs].some((d) => d.startsWith(path + "/"));
+    if (!there) return false;
+    for (const d of [...this.dirs]) if (d === path || d.startsWith(path + "/")) this.dirs.delete(d);
+    return true;
   }
   async readBytes(path: string) {
     const f = this.files.get(path);

@@ -59,8 +59,13 @@ The quote.
   });
 
   it("finds the owning app by the longest folder", () => {
-    expect(moduleForPath("Life/To-Do & Routines/x.md", DEFAULT_MODULES)?.id).toBe("todo");
-    expect(moduleForPath("Life/Plan/x.md", DEFAULT_MODULES)?.id).toBe("life");
+    expect(moduleForPath("To-Do & Routines/x.md", DEFAULT_MODULES)?.id).toBe("todo");
+    expect(moduleForPath("Life/x.md", DEFAULT_MODULES)?.id).toBe("life");
+    expect(moduleForPath("Wisdom Drops/x.md", DEFAULT_MODULES)?.id).toBe("wisdom");
+    expect(moduleForPath("Wisdom Drops/Quotes & Tweets/x.md", DEFAULT_MODULES)?.id).toBe("quotes");
+    expect(moduleForPath("Organization/Backups/x.md", DEFAULT_MODULES)?.id).toBe("organization");
+    expect(moduleForPath("Organization/SOPs/x.md", DEFAULT_MODULES)?.id).toBe("sops");
+    expect(moduleForPath("Organization/Home Inventory/x.md", DEFAULT_MODULES)?.id).toBe("home");
     expect(moduleForPath("Elsewhere/x.md", DEFAULT_MODULES)).toBeUndefined();
   });
 });
@@ -296,7 +301,7 @@ describe("turning notes into projects in place", () => {
 describe("folders", () => {
   it("makes every app's folder when LifeOS opens", async () => {
     const { mem } = await fresh();
-    for (const f of ["Content/Saved", "Life/To-Do & Routines", "Journal", "Projects", "Health/Medical"]) {
+    for (const f of ["Saved Content", "To-Do & Routines", "Journal", "Projects", "Health/Medical", "Wisdom Drops/Quotes & Tweets", "Organization/SOPs", "Organization/Home Inventory", "Organization/Backups", "Organization/AI Settings", "Organization/Tech Stack", "Organization/Bookmarks"]) {
       expect(mem.dirs.has(f)).toBe(true);
     }
   });
@@ -513,7 +518,7 @@ describe("importing Notability notes", () => {
 describe("courses, programs and lessons", () => {
   it("a program is only a folder, its courses are folders inside it, and their lessons are folders inside those", async () => {
     const { mem, store } = await fresh();
-    const base = "Knowledge/Courses/UX Certificate";
+    const base = "Courses/UX Certificate";
     const intro = await store.createProgram("UX Certificate", "Intro to UX Design");
     expect(intro.path).toBe(`${base}/Intro to UX Design/Intro to UX Design.md`);
     expect(mem.files.has(`${base}/UX Certificate.md`)).toBe(false);
@@ -535,9 +540,9 @@ describe("courses, programs and lessons", () => {
 
   it("everything already in Courses is marked Completed once; later courses keep their own status", async () => {
     const mem = new MemoryStorage(false);
-    mem.dropFile("Knowledge/Courses/Old Course.md", '---\nid: o1\ntitle: "Old Course"\nStatus: Want\n---\n');
-    mem.dropFile("Knowledge/Courses/Prog/Prog Course/Prog Course.md", '---\nid: o2\ntitle: "Prog Course"\n---\n');
-    mem.dropFile("Knowledge/Courses/Done Course.md", '---\nid: o3\ntitle: "Done Course"\nStatus: Done\n---\n');
+    mem.dropFile("Courses/Old Course.md", '---\nid: o1\ntitle: "Old Course"\nStatus: Want\n---\n');
+    mem.dropFile("Courses/Prog/Prog Course/Prog Course.md", '---\nid: o2\ntitle: "Prog Course"\n---\n');
+    mem.dropFile("Courses/Done Course.md", '---\nid: o3\ntitle: "Done Course"\nStatus: Done\n---\n');
     const store = new LifeStore(mem);
     await store.init();
     for (const id of ["o1", "o2", "o3"]) expect(store.index.items.get(id)!.fields["Status"]).toBe("Completed");
@@ -550,13 +555,13 @@ describe("courses, programs and lessons", () => {
   it("a new program, adding a course to it, and renaming it", async () => {
     const { mem, store } = await fresh();
     const first = await store.createProgram("Spanish Program", "Spanish 101", "Ms. Lopez");
-    expect(first.path).toBe("Knowledge/Courses/Spanish Program/Spanish 101/Spanish 101.md");
-    expect(mem.files.has("Knowledge/Courses/Spanish Program/Spanish Program.md")).toBe(false);
-    const second = await store.addCourseToProgram("Knowledge/Courses/Spanish Program", "Spanish 102");
+    expect(first.path).toBe("Courses/Spanish Program/Spanish 101/Spanish 101.md");
+    expect(mem.files.has("Courses/Spanish Program/Spanish Program.md")).toBe(false);
+    const second = await store.addCourseToProgram("Courses/Spanish Program", "Spanish 102");
     expect(second.fields["Part"]).toBe(2);
-    const dir = await store.renameProgram("Knowledge/Courses/Spanish Program", "Spanish");
-    expect(dir).toBe("Knowledge/Courses/Spanish");
-    expect(mem.files.has("Knowledge/Courses/Spanish/Spanish 101/Spanish 101.md")).toBe(true);
+    const dir = await store.renameProgram("Courses/Spanish Program", "Spanish");
+    expect(dir).toBe("Courses/Spanish");
+    expect(mem.files.has("Courses/Spanish/Spanish 101/Spanish 101.md")).toBe(true);
     expect(store.index.programCourses(dir).map((c) => c.title)).toEqual(["Spanish 101", "Spanish 102"]);
   });
 
@@ -564,13 +569,13 @@ describe("courses, programs and lessons", () => {
     const { mem, store } = await fresh();
     const c = await store.createItem("courses", "Spanish", "", {});
     const lesson = await store.addCourseLesson(c, "Lesson 1");
-    expect(lesson.path).toBe("Knowledge/Courses/Spanish/Lesson 1/Lesson 1.md");
+    expect(lesson.path).toBe("Courses/Spanish/Lesson 1/Lesson 1.md");
     expect(lesson.kind).toBe("lesson");
     const folderItem = store.index.items.get(c.id)!;
     await store.saveItem({ ...folderItem, title: "Spanish Basics" }, { rename: true });
-    expect(mem.files.has("Knowledge/Courses/Spanish Basics/Spanish Basics.md")).toBe(true);
-    expect(mem.files.has("Knowledge/Courses/Spanish Basics/Lesson 1/Lesson 1.md")).toBe(true);
-    expect(mem.files.has("Knowledge/Courses/Spanish/Spanish.md")).toBe(false);
+    expect(mem.files.has("Courses/Spanish Basics/Spanish Basics.md")).toBe(true);
+    expect(mem.files.has("Courses/Spanish Basics/Lesson 1/Lesson 1.md")).toBe(true);
+    expect(mem.files.has("Courses/Spanish/Spanish.md")).toBe(false);
     expect(store.index.courseParts(store.index.items.get(c.id)!).map((l) => l.title)).toEqual(["Lesson 1"]);
     expect(store.index.programs()).toEqual([]);
   });
@@ -584,19 +589,19 @@ describe("files on a course page", () => {
     const n = await store.addCourseFiles(course, ["slides.pdf", "notes.md", "board.png", "Lesson 1.note"].map((f) => `/Users/you/Desktop/${f}`));
     expect(n).toBe(4);
     const c = store.index.items.get(course.id)!;
-    expect(c.path).toBe("Knowledge/Courses/Spanish/Spanish.md");
+    expect(c.path).toBe("Courses/Spanish/Spanish.md");
     expect(c.files).toEqual(["slides.pdf", "notes.md", "board.png", "Lesson 1.note"]);
-    for (const f of c.files) expect(mem.files.has(`Knowledge/Courses/Spanish/${f}`)).toBe(true);
+    for (const f of c.files) expect(mem.files.has(`Courses/Spanish/${f}`)).toBe(true);
     // a second file with the same name is kept, with " 2", never overwritten
     mem.external.set("/Users/you/Downloads/slides.pdf", "y");
     await store.addCourseFiles(c, ["/Users/you/Downloads/slides.pdf"]);
     expect(store.index.items.get(course.id)!.files).toContain("slides 2.pdf");
-    expect(mem.files.get("Knowledge/Courses/Spanish/slides.pdf")?.text).toBe("x");
+    expect(mem.files.get("Courses/Spanish/slides.pdf")?.text).toBe("x");
   });
 
   it("shows 'Part 1 of 3' and 'Lesson 2 of 2', and lists the files in a folder, not ones moved away", async () => {
     const { mem, store } = await fresh();
-    const base = "Knowledge/Courses/UX Certificate";
+    const base = "Courses/UX Certificate";
     await store.createProgram("UX Certificate", "Intro to UX Design");
     await store.addCourseToProgram(base, "UX Immersion");
     const fe = await store.addCourseToProgram(base, "Front-End Development");
@@ -644,25 +649,25 @@ describe("the artboard's pages (tabs in the sidebar, icons on the artboard)", ()
 describe("loose files in Courses", () => {
   it("files inside a course or lesson folder (and hidden files) are not 'loose'; only real strays are", async () => {
     const { mem, store } = await fresh();
-    const base = "Knowledge/Courses/UX Certificate";
+    const base = "Courses/UX Certificate";
     await store.createProgram("UX Certificate", "Intro to UX Design");
     const fe = await store.addCourseToProgram(base, "Front-End Development");
     const l1 = await store.addCourseLesson(fe, "1 - Getting Started with HTML & CSS");
     mem.dropFile(`${base}/Front-End Development/1.2 - Internet & the Web.pdf`, "PDF"); // in the course's folder
     mem.dropFile(`${base}/Front-End Development/${l1.title}/1.1 - Start.pdf`, "PDF"); // in the lesson's folder
-    mem.dropFile("Knowledge/Courses/.DS_Store", "x");
+    mem.dropFile("Courses/.DS_Store", "x");
     mem.dropFile(`${base}/Front-End Development Notes Week 3.pdf`, "PDF"); // a real stray, beside the course folders
-    mem.dropFile("Knowledge/Courses/Random.pdf", "PDF");
+    mem.dropFile("Courses/Random.pdf", "PDF");
     await store.rescan();
     expect(store.index.unfiled("courses").map((e) => e.path).sort()).toEqual([
-      "Knowledge/Courses/Random.pdf",
+      "Courses/Random.pdf",
       `${base}/Front-End Development Notes Week 3.pdf`,
     ]);
   });
 
   it("Put in… moves a stray into a course or lesson and lists it on that page; suggests by name", async () => {
     const { mem, store } = await fresh();
-    const base = "Knowledge/Courses/UX Certificate";
+    const base = "Courses/UX Certificate";
     await store.createProgram("UX Certificate", "Intro to UX Design");
     const fe = await store.addCourseToProgram(base, "Front-End Development");
     const l1 = await store.addCourseLesson(fe, "1 - Getting Started with HTML & CSS");
@@ -681,10 +686,187 @@ describe("loose files in Courses", () => {
     expect(store.index.unfiled("courses")).toEqual([]);
     // a course on its own gets a folder first
     const solo = await store.createItem("courses", "Spanish", "", {});
-    mem.dropFile("Knowledge/Courses/verbs.pdf", "PDF");
+    mem.dropFile("Courses/verbs.pdf", "PDF");
     await store.rescan();
-    await store.moveLooseFileToCourse("Knowledge/Courses/verbs.pdf", solo.id);
-    expect(mem.files.has("Knowledge/Courses/Spanish/verbs.pdf")).toBe(true);
-    expect(store.index.items.get(solo.id)!.path).toBe("Knowledge/Courses/Spanish/Spanish.md");
+    await store.moveLooseFileToCourse("Courses/verbs.pdf", solo.id);
+    expect(mem.files.has("Courses/Spanish/verbs.pdf")).toBe(true);
+    expect(store.index.items.get(solo.id)!.path).toBe("Courses/Spanish/Spanish.md");
+  });
+});
+
+describe("the new app organization", () => {
+  it("is one flat list in the order asked for, with the folded apps hidden and every old id kept", () => {
+    const visible = DEFAULT_MODULES.filter((m) => !m.hidden).map((m) => m.name);
+    expect(visible).toEqual([
+      "Life", "To-Do & Routines", "Projects", "Journal", "Job Tracker", "Library", "Courses", "Saved Content",
+      "Creator Studio", "Wisdom Drops", "Recipes", "Wardrobe", "Health", "Organization", "Finance",
+      "Family Tree & Archive", "Photos & Videos",
+    ]);
+    expect(DEFAULT_MODULES.filter((m) => m.hidden).map((m) => [m.id, m.foldedInto])).toEqual([
+      ["quotes", "wisdom"],
+      ["sops", "organization"],
+      ["home", "organization"],
+    ]);
+    const ids = DEFAULT_MODULES.map((m) => m.id);
+    for (const old of ["life", "todo", "projects", "journal", "quotes", "wisdom", "library", "courses", "sops", "saved", "creator", "photos", "wardrobe", "recipes", "home", "family", "medical", "finance", "jobs"]) {
+      expect(ids).toContain(old);
+    }
+    const health = DEFAULT_MODULES.find((m) => m.id === "medical")!;
+    expect(health.name).toBe("Health");
+    expect(health.folder).toBe("Health/Medical");
+    expect(DEFAULT_MODULES.some((m) => "group" in m)).toBe(false);
+    expect(DEFAULT_MODULES.find((m) => m.id === "organization")!.sections).toEqual(["Backups", "AI Settings", "Tech Stack", "SOPs", "Bookmarks", "Home Inventory"]);
+    // every folder is top-level except the ones folded into another app, which sit inside it
+    for (const m of DEFAULT_MODULES) {
+      const top = m.folder.split("/")[0];
+      expect(["Knowledge", "Content", "Career", "Home"]).not.toContain(top === "Home" ? "Home" : top);
+    }
+    expect(DEFAULT_MODULES.find((m) => m.id === "life")!.folder).toBe("Life");
+    expect(DEFAULT_MODULES.find((m) => m.id === "todo")!.folder).toBe("To-Do & Routines");
+  });
+
+  it("Wisdom Drops shows quotes and tweets too (with a Source type), and Organization shows SOPs and Home Inventory", async () => {
+    const { store } = await fresh();
+    const drop = await store.createItem("wisdom", "An insight", "", { "Source type": "Insight" });
+    const quote = await store.createItem("quotes", "A quote", "", {});
+    const sop = await store.createItem("sops", "How I back up", "", {});
+    const home = await store.createItem("home", "Couch", "", {});
+    const backup = await store.createItem("organization", "Backup drive", "Backups", {});
+    expect(quote.path).toBe("Wisdom Drops/Quotes & Tweets/A quote.md");
+    expect(sop.path).toBe("Organization/SOPs/How I back up.md");
+    expect(home.path).toBe("Organization/Home Inventory/Couch.md");
+    expect(backup.path).toBe("Organization/Backups/Backup drive.md");
+    expect(store.index.inApp("wisdom").map((i) => i.id).sort()).toEqual([drop.id, quote.id].sort());
+    expect(store.index.inApp("organization")).toHaveLength(3);
+    expect(store.index.countFor("wisdom")).toBe(2);
+    expect(store.index.countFor("organization")).toBe(3);
+    expect(store.index.hostId("quotes")).toBe("wisdom");
+    expect(store.index.hostId("life")).toBe("life");
+    // searching the app finds the folded notes; the notes keep their own app id
+    expect(store.index.search("quote", "wisdom").map((i) => i.id)).toEqual([quote.id]);
+    expect(store.index.items.get(quote.id)!.module).toBe("quotes");
+    // a drop can link to a Saved Content item, which stays where it is
+    const saved = await store.createItem("saved", "A reel", "", {});
+    await store.addLink(drop, saved, "saved content");
+    expect(store.index.items.get(drop.id)!.links).toEqual([{ to: store.index.items.get(saved.id)!.id, kind: "saved content" }]);
+    expect(store.index.items.get(saved.id)!.path).toBe("Saved Content/A reel.md");
+    expect(store.index.backlinks(saved.id).map((b) => b.item.id)).toEqual([drop.id]);
+  });
+});
+
+describe("moving the old folders to the new layout when LifeOS opens", () => {
+  const note = (id: string, module: string, title: string, extra = "") => `---\nid: ${id}\nmodule: ${module}\ntitle: ${title}\n${extra}---\nBody of ${title}\n`;
+  const oldLayout = (mem: MemoryStorage) => {
+    mem.dropFile("Life/Plan/Goal.md", note("g1", "life", "Goal", "links:\n  - to: j1\n    kind: related\n"));
+    mem.dropFile("Life/To-Do & Routines/Task.md", note("t1", "todo", "Task"));
+    mem.dropFile("Knowledge/Courses/Spanish/Spanish.md", note("c1", "courses", "Spanish"));
+    mem.dropFile("Knowledge/Courses/Spanish/slides.pdf", "PDF BYTES");
+    mem.dropFile("Knowledge/Wisdom Drops/Drop.md", note("w1", "wisdom", "Drop", "links:\n  - to: q1\n    kind: related\n"));
+    mem.dropFile("Knowledge/Quotes & Tweets/Quote.md", note("q1", "quotes", "Quote"));
+    mem.dropFile("Knowledge/SOPs/Backup.md", note("s1", "sops", "Backup"));
+    mem.dropFile("Home/Inventory/Couch.md", note("h1", "home", "Couch"));
+    mem.dropFile("Content/Saved/Reel.md", note("sv1", "saved", "Reel"));
+    mem.dropFile("Content/Creator Studio/Idea.md", note("cr1", "creator", "Idea"));
+    mem.dropFile("Career/Job Tracker/Contact.md", note("jb1", "jobs", "Contact"));
+    mem.dropFile("Journal/2026-11-11/2026-11-11.md", note("j1", "journal", "2026-11-11"));
+    mem.dropFile("Projects/Personal/P/p.lifeos", note("p1", "projects", "P", "kind: project\n"));
+    mem.dropFile("Recipes/Dal.md", note("r1", "recipes", "Dal"));
+  };
+
+  it("moves each old folder whole to its new place, keeping contents, ids and links, and logs it", async () => {
+    const mem = new MemoryStorage(false);
+    oldLayout(mem);
+    mem.dropFile(".lifeos/courses-status-completed", "done"); // that one-time step already ran on the owner's Mac
+    const before = new Map([...mem.files].map(([k, v]) => [k, v.text]));
+    const store = new LifeStore(mem);
+    await store.init();
+
+    const expected: Record<string, string> = {
+      "Life/Plan/Goal.md": "Life/Goal.md",
+      "Life/To-Do & Routines/Task.md": "To-Do & Routines/Task.md",
+      "Knowledge/Courses/Spanish/Spanish.md": "Courses/Spanish/Spanish.md",
+      "Knowledge/Courses/Spanish/slides.pdf": "Courses/Spanish/slides.pdf",
+      "Knowledge/Wisdom Drops/Drop.md": "Wisdom Drops/Drop.md",
+      "Knowledge/Quotes & Tweets/Quote.md": "Wisdom Drops/Quotes & Tweets/Quote.md",
+      "Knowledge/SOPs/Backup.md": "Organization/SOPs/Backup.md",
+      "Home/Inventory/Couch.md": "Organization/Home Inventory/Couch.md",
+      "Content/Saved/Reel.md": "Saved Content/Reel.md",
+      "Content/Creator Studio/Idea.md": "Creator Studio/Idea.md",
+      "Career/Job Tracker/Contact.md": "Job Tracker/Contact.md",
+      // left exactly as they are
+      "Journal/2026-11-11/2026-11-11.md": "Journal/2026-11-11/2026-11-11.md",
+      "Projects/Personal/P/p.lifeos": "Projects/Personal/P/p.lifeos",
+      "Recipes/Dal.md": "Recipes/Dal.md",
+    };
+    for (const [from, to] of Object.entries(expected)) {
+      expect(mem.files.get(to)?.text, to).toBe(before.get(from)); // same contents, nothing lost or rewritten
+      if (from !== to) expect(mem.files.has(from), from).toBe(false); // moved, not copied
+    }
+    expect(mem.files.size - [...mem.files.keys()].filter((k) => k.startsWith(".lifeos/")).length).toBe(before.size - 1);
+    // every note is still found, in the right app, with its id and links
+    expect(store.index.items.get("g1")!.module).toBe("life");
+    expect(store.index.items.get("g1")!.links).toEqual([{ to: "j1", kind: "related" }]);
+    expect(store.index.items.get("q1")!.module).toBe("quotes");
+    expect(store.index.items.get("t1")!.path).toBe("To-Do & Routines/Task.md");
+    expect(store.index.inApp("wisdom").map((i) => i.id).sort()).toEqual(["q1", "w1"]);
+    expect(store.index.inApp("organization").map((i) => i.id).sort()).toEqual(["h1", "s1"]);
+    expect(store.index.backlinks("q1").map((b) => b.item.id)).toEqual(["w1"]);
+    // it says what it did
+    expect(store.moveLog.filter((l) => l.includes(" moved ")).length).toBe(10);
+    expect(store.moveLog.some((l) => l.includes('moved "Knowledge/Courses" to "Courses"'))).toBe(true);
+    expect(mem.files.get(".lifeos/folder-moves.log")!.text).toContain('moved "Content/Saved" to "Saved Content"');
+    // the old category folders had nothing else, so they are gone
+    for (const dir of ["Knowledge", "Content", "Career", "Home", "Life (old)"]) expect(await mem.exists(dir), dir).toBe(false);
+    // opening again moves nothing
+    await store.openRoot("");
+    expect(store.moveLog).toEqual([]);
+    expect(mem.files.get("Courses/Spanish/slides.pdf")?.text).toBe("PDF BYTES");
+  });
+
+  it("leaves a folder where it is if its new place already exists, and keeps a category folder that still has something in it", async () => {
+    const mem = new MemoryStorage(false);
+    mem.dropFile("Courses/Existing.md", note("e1", "courses", "Existing"));
+    mem.dropFile("Knowledge/Courses/Old.md", note("c9", "courses", "Old"));
+    mem.dropFile("Knowledge/SOPs/Backup.md", note("s1", "sops", "Backup"));
+    mem.dropFile("Knowledge/.DS_Store", "finder junk");
+    const store = new LifeStore(mem);
+    await store.init();
+    expect(mem.files.has("Knowledge/Courses/Old.md")).toBe(true); // not moved: "Courses" already existed
+    expect(mem.files.has("Courses/Old.md")).toBe(false);
+    expect(mem.files.get("Courses/Existing.md")).toBeDefined();
+    expect(mem.files.has("Organization/SOPs/Backup.md")).toBe(true);
+    expect(store.moveLog.some((l) => l.includes('left "Knowledge/Courses" where it is'))).toBe(true);
+    expect(store.moveLog.some((l) => l.includes('kept "Knowledge"'))).toBe(true);
+    expect(mem.files.get("Knowledge/.DS_Store")?.text).toBe("finder junk");
+  });
+
+  it("turns Life/Plan into Life even though Life is its parent, and keeps anything else that was in Life", async () => {
+    const mem = new MemoryStorage(false);
+    mem.dropFile("Life/Plan/Goal.md", note("g1", "life", "Goal"));
+    mem.dropFile("Life/To-Do & Routines/Task.md", note("t1", "todo", "Task"));
+    mem.dropFile("Life/loose notes.txt", "not in any app");
+    const store = new LifeStore(mem);
+    await store.init();
+    expect(mem.files.get("Life/Goal.md")?.text).toContain("Body of Goal");
+    expect(mem.files.has("To-Do & Routines/Task.md")).toBe(true);
+    expect(mem.files.get("Life (old)/loose notes.txt")?.text).toBe("not in any app");
+    expect(store.moveLog.some((l) => l.includes('kept "Life (old)"'))).toBe(true);
+    expect(store.index.items.get("g1")!.path).toBe("Life/Goal.md");
+  });
+
+  it("puts everything back if a move fails half-way", async () => {
+    class Flaky extends MemoryStorage {
+      async renameDir(from: string, to: string) {
+        if (from === "Life (old)/Plan") throw new Error("disk trouble");
+        return super.renameDir(from, to);
+      }
+    }
+    const mem = new Flaky(false);
+    mem.dropFile("Life/Plan/Goal.md", note("g1", "life", "Goal"));
+    const store = new LifeStore(mem);
+    await store.init();
+    expect(mem.files.get("Life/Plan/Goal.md")?.text).toContain("Body of Goal");
+    expect(mem.files.has("Life (old)/Plan/Goal.md")).toBe(false);
+    expect(store.moveLog.some((l) => l.includes("could not move") && l.includes("disk trouble"))).toBe(true);
   });
 });

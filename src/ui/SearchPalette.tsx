@@ -30,7 +30,7 @@ export function SearchPalette({ go, close }: { go: (r: Route) => void; close: ()
         />
         <ul className="list">
           {results.map((i, n) => {
-            const m = store.module(i.module);
+            const m = store.module(store.index.hostId(i.module));
             return (
               <li key={i.id} className={`row ${n === sel ? "selected" : ""}`} onMouseEnter={() => setSel(n)} onClick={() => choose(i.id)}>
                 <span className="row-icon">{m?.icon}</span>

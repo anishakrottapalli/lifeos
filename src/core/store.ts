@@ -8,6 +8,7 @@ import { DEFAULT_MODULES, applyOverrides, type ModuleOverrides } from "./modules
 import { LifeIndex } from "./index";
 import { serializeItem } from "./notes";
 import { dateFromName, mediaLine } from "./journal";
+import { FOLDER_MOVES, OLD_CATEGORY_FOLDERS } from "./reorganize";
 import { parseNote } from "./notability";
 import { newId } from "./ids";
 import {
@@ -94,8 +95,13 @@ export class LifeStore {
     await this.storage.openRoot(root);
     this.cache.clear();
     await this.loadModules();
+    // First, move any folders from the old layout to their new places (before new folders are made).
+    await this.reorganizeFolders();
     // Every app's folder exists from day one, so the whole structure shows in Finder.
-    for (const m of this.modules) await this.storage.mkdir(m.folder);
+    for (const m of this.modules) {
+      await this.storage.mkdir(m.folder);
+      for (const section of m.sections ?? []) await this.storage.mkdir(`${m.folder}/${section}`);
+    }
     await this.rescan();
     await this.upgradeOldProjects();
     await this.markCoursesCompletedOnce();
@@ -103,6 +109,72 @@ export class LifeStore {
     this.unwatch = this.storage.onChange(() => this.scheduleRescan());
     this.ready = true;
     this.bump();
+  }
+
+  /** What the last folder reorganization did when LifeOS opened (also saved in LifeOS/.lifeos/folder-moves.log). */
+  moveLog: string[] = [];
+
+  /**
+   * Move each old folder to its new place (see `FOLDER_MOVES`): the whole folder, never a copy, and only if the
+   * new one doesn't exist yet, so files, note ids and links are untouched. Then remove an old category folder
+   * only if it ended up completely empty. Everything it does is logged.
+   */
+  private async reorganizeFolders() {
+    const lines: string[] = [];
+    const say = (text: string) => lines.push(`${nowStamp()}  ${text}`);
+    for (const { from, to } of FOLDER_MOVES) {
+      try {
+        if (!(await this.storage.exists(from))) continue;
+        if (from.startsWith(to + "/")) {
+          await this.liftOutOfParent(from, to, say);
+        } else if (await this.storage.exists(to)) {
+          say(`left "${from}" where it is, because "${to}" already exists`);
+        } else {
+          await this.storage.renameDir(from, to);
+          say(`moved "${from}" to "${to}"`);
+        }
+      } catch (e) {
+        say(`could not move "${from}" to "${to}": ${e}`);
+      }
+    }
+    for (const dir of OLD_CATEGORY_FOLDERS) {
+      try {
+        if (!(await this.storage.exists(dir))) continue;
+        say((await this.storage.removeEmptyDir(dir)) ? `removed the empty folder "${dir}"` : `kept "${dir}", it still has something in it`);
+      } catch (e) {
+        say(`could not check "${dir}": ${e}`);
+      }
+    }
+    this.moveLog = lines;
+    if (!lines.length) return;
+    try {
+      const file = ".lifeos/folder-moves.log";
+      const before = (await this.storage.read(file)) ?? "";
+      await this.storage.write(file, before + lines.join("\n") + "\n");
+    } catch {
+      /* the log is only a convenience */
+    }
+  }
+
+  /**
+   * "Life/Plan" becomes "Life", but "Life" is its parent. Move the parent aside, move "Plan" up into its place,
+   * and remove the old parent only if nothing is left in it. Puts everything back if a step fails.
+   */
+  private async liftOutOfParent(from: string, to: string, say: (t: string) => void) {
+    const aside = `${to} (old)`;
+    if (await this.storage.exists(aside)) {
+      say(`left "${from}" where it is, because "${aside}" already exists`);
+      return;
+    }
+    await this.storage.renameDir(to, aside);
+    try {
+      await this.storage.renameDir(`${aside}/${from.slice(to.length + 1)}`, to);
+    } catch (e) {
+      await this.storage.renameDir(aside, to);
+      throw e;
+    }
+    say(`moved "${from}" to "${to}"`);
+    say((await this.storage.removeEmptyDir(aside)) ? `removed the empty folder "${aside}"` : `kept "${aside}", it still has something in it`);
   }
 
   /**

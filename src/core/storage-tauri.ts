@@ -39,6 +39,9 @@ export class TauriStorage implements Storage {
   mkdir(path: string) {
     return invoke<void>("make_dir", { path });
   }
+  removeEmptyDir(path: string) {
+    return invoke<boolean>("remove_empty_dir", { path });
+  }
   async readBytes(path: string) {
     try {
       return new Uint8Array(await invoke<ArrayBuffer>("read_bytes", { path }));

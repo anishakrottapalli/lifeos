@@ -40,7 +40,7 @@ export function LinkPicker({
         <p className="muted small">Kind of link: “{kind || "related"}” (pick one or type your own)</p>
         <ul className="list picker">
           {results.map((i) => {
-            const m = store.module(i.module);
+            const m = store.module(store.index.hostId(i.module));
             return (
               <li key={i.id} className="row" onClick={() => pick(i, kind.trim() || "related")}>
                 <span className="row-icon">{m?.icon}</span>

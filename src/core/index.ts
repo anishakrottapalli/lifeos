@@ -136,7 +136,25 @@ export class LifeIndex {
   /** How many things an app holds (for Projects: projects, not their sections). */
   countFor(moduleId: string): number {
     if (moduleId === "projects") return this.projectByDir.size;
-    return this.inModule(moduleId).length;
+    return this.inApp(moduleId).length;
+  }
+
+  /** The app a module is shown in: the app it is folded into, or itself. */
+  hostId(moduleId: string): string {
+    return this.module(moduleId)?.foldedInto ?? moduleId;
+  }
+
+  /** An app and every app folded into it (Wisdom Drops also holds Quotes & Tweets). */
+  appModuleIds(appId: string): string[] {
+    return [appId, ...this.modules.filter((m) => m.foldedInto === appId).map((m) => m.id)];
+  }
+
+  /** Everything an app shows: its own notes plus the notes of the apps folded into it. */
+  inApp(appId: string): Item[] {
+    const ids = new Set(this.appModuleIds(appId));
+    return [...this.items.values()]
+      .filter((i) => ids.has(i.module))
+      .sort((a, b) => (b.updated || "").localeCompare(a.updated || "") || a.title.localeCompare(b.title));
   }
 
   /** "LifeOS › Market Research" for pages inside a project; the plain title otherwise. */
@@ -341,6 +359,7 @@ export class LifeIndex {
   unfiled(moduleId: string): Entry[] {
     const mod = this.module(moduleId);
     if (!mod) return [];
+    const appIds = new Set(this.appModuleIds(moduleId));
     const claimed = new Set<string>();
     // A course or lesson owns its whole folder: every file in it is shown on its page.
     const owned = new Set<string>();
@@ -352,7 +371,7 @@ export class LifeIndex {
       (e) =>
         !isNote(e.path) &&
         !isBoardFile(e.path) &&
-        moduleForPath(e.path, this.modules)?.id === moduleId &&
+        appIds.has(moduleForPath(e.path, this.modules)?.id ?? "") &&
         !claimed.has(e.path) &&
         !owned.has(dirName(e.path)) &&
         !fileName(e.path).startsWith(".") &&
@@ -365,7 +384,7 @@ export class LifeIndex {
     if (!words.length) return [];
     const scored: { item: Item; score: number }[] = [];
     for (const item of this.items.values()) {
-      if (moduleId && item.module !== moduleId) continue;
+      if (moduleId && this.hostId(item.module) !== moduleId) continue;
       const title = item.title.toLowerCase();
       const hay = [
         title,
