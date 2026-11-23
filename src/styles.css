@@ -439,7 +439,7 @@ h1.day-title { font-size: 40px; font-weight: 500; letter-spacing: 0.05em; text-t
 }
 .find-pill:hover { background: var(--pill); border-color: var(--line-strong); color: var(--text); }
 .find-pill kbd { border: none; background: var(--chip); color: var(--text); border-radius: 999px; padding: 2px 8px; font-size: 12px; }
-.page { padding-top: 18px; }
+.page { max-width: none; margin: 0; padding: 18px 40px 80px; }
 .page-head p { font-size: 15px; margin-top: 12px; }
 .page-head .actions button { height: 44px; padding: 0 22px; border-radius: 999px; font-size: 14px; background: var(--pill); border-color: var(--line); }
 .page-head .actions button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-size: 15px; font-weight: 500; }
