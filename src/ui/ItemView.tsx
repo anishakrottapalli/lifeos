@@ -5,6 +5,7 @@ import { inTauri } from "../core/storage";
 import { displayValue, timeAgo, useStore, type Route } from "./hooks";
 import { LinkPicker } from "./LinkPicker";
 import { renderMarkdown } from "./markdown";
+import { LiveEditor } from "./LiveEditor";
 import { CourseParts } from "./CourseParts";
 import { CertificatePanel } from "./CertificatePanel";
 import { hasOverview } from "../core/projects";
@@ -189,38 +190,16 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
               <button
                 className="small-button"
                 title="Add a dated entry at the top of the build log"
-                onClick={() => {
-                  setPreview(false);
-                  change({ body: addLogEntry(latest.current!.body, today(), "##") }, { now: true });
-                }}
+                onClick={() => change({ body: addLogEntry(latest.current!.body, today(), "##") }, { now: true })}
               >
                 + Today's entry
               </button>
             )}
             <span className="muted small">{status || "Saved"}</span>
-            <div className="seg" role="group" aria-label="View">
-              <button aria-pressed={!preview} className={!preview ? "on" : ""} onClick={() => setPreview(false)}>
-                Edit
-              </button>
-              <button aria-pressed={preview} className={preview ? "on" : ""} onClick={() => setPreview(true)}>
-                Preview
-              </button>
-            </div>
           </div>
         </div>
         <div className="editor-page">
-          {preview ? (
-            <div className="markdown editor-text" dangerouslySetInnerHTML={{ __html: renderMarkdown(draft.body || "*Nothing written yet.*") }} />
-          ) : (
-            <textarea
-              className="editor-text"
-              aria-label="Page text"
-              value={draft.body}
-              autoFocus
-              placeholder="Write anything. Markdown works: # headings, - lists, **bold**."
-              onChange={(e) => change({ body: e.target.value })}
-            />
-          )}
+          <LiveEditor value={draft.body} onChange={(body) => change({ body })} />
         </div>
       </div>
     );
