@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
-const RUNTIME_PACKAGES = ["react", "react-dom", "scheduler", "yaml", "@tauri-apps/api", "@tauri-apps/plugin-dialog"];
+const RUNTIME_PACKAGES = ["react", "react-dom", "scheduler", "yaml", "@tauri-apps/api", "@tauri-apps/plugin-dialog", "@fontsource/inter", "@fontsource/space-grotesk"];
 const PRIVATE_METHOD = /(^|[\s;{}])(static\s+|async\s+|get\s+|set\s+|\*\s*)?#[A-Za-z_$][\w$]*\s*\([^)]*\)\s*\{/m;
 
 function jsFiles(dir: string): string[] {
