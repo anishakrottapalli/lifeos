@@ -69,8 +69,13 @@ export class TauriStorage implements Storage {
     const r = await openDialog({ directory: true, multiple: false, title: "Choose your LifeOS folder" });
     return typeof r === "string" ? r : null;
   }
-  async pickFiles() {
-    const r = await openDialog({ multiple: true, directory: false, title: "Add files (they'll be moved into LifeOS)" });
+  async pickFiles(only?: { name: string; extensions: string[] }) {
+    const r = await openDialog({
+      multiple: true,
+      directory: false,
+      title: "Add files (they'll be moved into LifeOS)",
+      ...(only ? { filters: [only] } : {}),
+    });
     if (!r) return [];
     return Array.isArray(r) ? r : [r];
   }

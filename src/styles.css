@@ -390,3 +390,14 @@ ul.plain { margin: 6px 0 0; padding-left: 18px; line-height: 1.7; }
 .parts-columns .part-col input { margin-top: 3px; flex-shrink: 0; }
 .parts-columns ul.plain { margin-top: 6px; }
 .note-centered { text-align: center; margin-top: 18px !important; }
+
+/* ---------- journal ---------- */
+.day-list .row { padding: 18px 4px; }
+.day-list .clip { color: var(--muted); flex-shrink: 0; }
+h1.day-title { font-size: 40px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1.15; margin-bottom: 16px; }
+.day-body { max-width: 760px; }
+.insert-bar { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-bottom: 22px; }
+.insert-bar .eyebrow { margin: 0 6px 0 0; }
+.day-body .body-input { min-height: 340px; font-size: 17px; line-height: 1.75; border: none; background: transparent; padding: 0; }
+.day-body .body-input:focus { border: none; }
+.day-preview { margin-top: 24px; background: transparent; border: none; border-top: 1px solid var(--line); border-radius: 0; padding: 18px 0 0; }

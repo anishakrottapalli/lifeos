@@ -195,7 +195,7 @@ export class MemoryStorage implements Storage {
   async pickFolder() {
     return null;
   }
-  async pickFiles() {
+  async pickFiles(_only?: { name: string; extensions: string[] }) {
     const picked = [...this.external.keys()];
     return picked.length ? [picked[0]] : [];
   }

@@ -169,7 +169,7 @@ export function NewProjectModal({
                 ))}
               </div>
               <span className="muted small">
-                Saves to <span className="strong">{top}/{title.trim() || "Name of project"}</span>
+                Saves to <span className="strong">Projects/{top}/{title.trim() || "Name of project"}</span>
               </span>
             </div>
           )}
