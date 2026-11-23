@@ -29,6 +29,8 @@ export interface Storage {
   /** A web address the window can show a picture or video from (null if it can't). */
   fileUrl(path: string): Promise<string | null>;
   open(path: string): Promise<void>;
+  /** Open a web address (https or http only) in the browser. */
+  openUrl(url: string): Promise<void>;
   reveal(path: string): Promise<void>;
   pickFolder(): Promise<string | null>;
   /** Choose files to add. `only` limits the choice, e.g. just pictures. */

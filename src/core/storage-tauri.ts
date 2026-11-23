@@ -62,6 +62,9 @@ export class TauriStorage implements Storage {
   open(path: string) {
     return invoke<void>("open_in_os", { path });
   }
+  openUrl(url: string) {
+    return invoke<void>("open_url", { url });
+  }
   reveal(path: string) {
     return invoke<void>("reveal_in_finder", { path });
   }

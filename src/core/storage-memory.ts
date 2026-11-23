@@ -191,6 +191,9 @@ export class MemoryStorage implements Storage {
     return null;
   }
   async open() {}
+  async openUrl(url: string) {
+    if (typeof window !== "undefined" && /^https?:\/\//.test(url)) window.open(url, "_blank", "noopener");
+  }
   async reveal() {}
   async pickFolder() {
     return null;

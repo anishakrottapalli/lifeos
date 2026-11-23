@@ -78,10 +78,20 @@ function asBoard(v: unknown): BoardCard[] | undefined {
     if (!c || typeof c !== "object") continue;
     const o = c as Record<string, unknown>;
     const type = asString(o.type);
-    if (type !== "text" && type !== "file" && type !== "page") continue;
-    const card: BoardCard = { id: asString(o.id) || `c${out.length}`, type, x: asNumber(o.x), y: asNumber(o.y) };
+    if (!["text", "file", "page", "section", "embed", "arrow"].includes(type)) continue;
+    const card: BoardCard = { id: asString(o.id) || `c${out.length}`, type: type as BoardCard["type"], x: asNumber(o.x), y: asNumber(o.y) };
     if (o.w !== undefined) card.w = asNumber(o.w, 240);
-    if (type === "text") card.text = asString(o.text);
+    if (o.h !== undefined) card.h = asNumber(o.h, 200);
+    if (type === "text" || type === "section" || type === "embed") card.text = asString(o.text);
+    if (type === "embed") {
+      card.url = asString(o.url);
+      const e = asString(o.embed);
+      card.embed = e === "artifact" || e === "chat" ? e : "link";
+    }
+    if (type === "arrow") {
+      card.from = asString(o.from);
+      card.to = asString(o.to);
+    }
     if (type === "file") card.file = asString(o.file);
     if (type === "page") card.page = asString(o.page);
     out.push(card);

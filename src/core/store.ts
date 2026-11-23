@@ -978,7 +978,8 @@ export class LifeStore {
         }
         files = files.filter((f) => f !== card.file);
       }
-      const board = (fresh.board ?? []).filter((c) => c.id !== card.id);
+      // Arrows that joined this card go with it.
+      const board = (fresh.board ?? []).filter((c) => c.id !== card.id && !(c.type === "arrow" && (c.from === card.id || c.to === card.id)));
       return this.saveNow({ ...fresh, files, board }, false);
     });
   }

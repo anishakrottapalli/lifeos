@@ -361,6 +361,20 @@ fn open_in_os(state: State<AppState>, path: String) -> Result<(), String> {
     run_open(&[&p.to_string_lossy()])
 }
 
+/// Only plain web addresses may be opened in the browser (never a file, an app or a script).
+fn is_web_url(url: &str) -> bool {
+    (url.starts_with("https://") || url.starts_with("http://")) && url.len() < 2048 && !url.chars().any(|c| c.is_whitespace() || c.is_control())
+}
+
+/// Open a web address in the browser (a Claude artifact or chat card on a Board).
+#[tauri::command]
+fn open_url(url: String) -> Result<(), String> {
+    if !is_web_url(&url) {
+        return Err("Only web links (https://…) can be opened.".to_string());
+    }
+    run_open(&[&url])
+}
+
 /// Show a file or folder in Finder.
 #[tauri::command]
 fn reveal_in_finder(state: State<AppState>, path: String) -> Result<(), String> {
@@ -400,6 +414,7 @@ pub fn run() {
             read_bytes,
             full_path,
             open_in_os,
+            open_url,
             reveal_in_finder
         ])
         .run(tauri::generate_context!())
@@ -408,6 +423,15 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn only_web_addresses_open() {
+        assert!(is_web_url("https://claude.ai/artifact/abc"));
+        assert!(is_web_url("http://example.com/a?b=1"));
+        for bad in ["file:///etc/passwd", "javascript:alert(1)", "/Applications/Calculator.app", "https://a b", "https://a\nb", "ftp://x", ""] {
+            assert!(!is_web_url(bad), "{bad}");
+        }
+    }
+
     use super::*;
 
     #[test]
