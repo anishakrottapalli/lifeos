@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 
-export function Modal({ close, children }: { close: () => void; children: ReactNode }) {
+export function Modal({ close, children, className = "" }: { close: () => void; children: ReactNode; className?: string }) {
   return (
     <div className="modal-backdrop" onClick={close}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className={`modal ${className}`} onClick={(e) => e.stopPropagation()}>
         {children}
       </div>
     </div>

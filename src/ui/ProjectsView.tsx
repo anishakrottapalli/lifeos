@@ -78,7 +78,7 @@ export function ProjectsView({ go }: { go: (r: Route) => void }) {
                 </td>
                 <td>{displayValue(p.fields["Type"])}</td>
                 <td className="muted">{allProjects.filter((q) => store.index.parentProject(q)?.id === p.id).length || "—"}</td>
-                <td className="muted small">{timeAgo(p.updated)}</td>
+                <td className="muted">{timeAgo(p.updated)}</td>
               </tr>
             ))}
           </tbody>
@@ -146,7 +146,7 @@ export function NewProjectModal({
   const isSub = fixedFolder !== undefined;
 
   return (
-    <Modal close={close}>
+    <Modal close={close} className="new-project">
       <h2>{heading}</h2>
       <form
         onSubmit={(e) => {
