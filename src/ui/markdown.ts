@@ -5,11 +5,11 @@
 // ---, **bold**, *italic*, `code`, [links](url). Everything is escaped first,
 // so text in a note can never run as code.
 
-function escapeHtml(s: string): string {
+export function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
-function inline(s: string): string {
+export function inline(s: string): string {
   let out = escapeHtml(s);
   out = out.replace(/`([^`]+)`/g, "<code>$1</code>");
   out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");

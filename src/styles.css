@@ -604,3 +604,33 @@ h1, h1.hero, h1.day-title, .page-title-row h1, .course-page .title-input, .title
 .editor-text { display: block; width: 100%; max-width: 760px; margin: 0 auto; min-height: 70vh; font-size: 17px; line-height: 1.75; color: var(--text); border: none; background: transparent; padding: 0; resize: none; outline: none; }
 .editor-text:focus { border: none; }
 .markdown.editor-text { min-height: 0; background: transparent; border: none; border-radius: 0; padding: 0; }
+
+/* Live Markdown page: drawn lines like Notion, the line you are on shows its Markdown. */
+.live-editor { max-width: 760px; margin: 0 auto; font-size: 17px; line-height: 1.75; color: var(--text); }
+.lb, .lb-input { margin: 0; }
+.lb p, .lb h1, .lb h2, .lb h3, .lb h4, .lb blockquote, .lb pre, .lb hr { margin: 0; }
+.lb-gap { min-height: 1.75em; }
+.lb-hint { color: var(--muted); }
+.lb-input { display: block; width: 100%; font: inherit; line-height: inherit; color: inherit; border: none; background: var(--row-on); border-radius: 6px; padding: 0 8px; margin: 0 -8px; width: calc(100% + 16px); resize: none; outline: none; overflow: hidden; }
+.lb-input:focus { border: none; }
+.lb h1, .lb-input.lb-k-h1 { font-family: var(--font-heading); font-size: 30px; font-weight: 600; line-height: 1.3; padding-top: 14px; }
+.lb h2, .lb-input.lb-k-h2 { font-family: var(--font-heading); font-size: 21px; font-weight: 600; line-height: 1.5; padding-top: 10px; }
+.lb h3, .lb-input.lb-k-h3 { font-family: var(--font-heading); font-size: 18px; font-weight: 600; line-height: 1.5; padding-top: 6px; }
+.lb h4, .lb-input.lb-k-h4 { font-size: 17px; font-weight: 600; }
+.lb-input.lb-k-h1, .lb-input.lb-k-h2, .lb-input.lb-k-h3 { padding-bottom: 0; }
+.lb-li { display: flex; align-items: flex-start; gap: 10px; }
+.lb-mark { flex: 0 0 18px; text-align: center; color: var(--muted); }
+.lb-num { flex: 0 0 24px; text-align: right; }
+.lb-todo input { flex: 0 0 18px; width: 18px; height: 18px; margin: 5px 0 0; accent-color: var(--accent-soft); cursor: pointer; }
+.lb-todo.done span { color: var(--muted); text-decoration: line-through; }
+.lb blockquote { border-left: 3px solid var(--line-strong); padding-left: 14px; color: var(--muted); }
+.lb hr { border: none; border-top: 1px solid var(--line); margin: 14px 0; }
+.lb pre { background: var(--hover); border-radius: var(--radius); padding: 12px 16px; font-size: 14px; line-height: 1.55; overflow-x: auto; }
+.lb code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 0.9em; background: var(--hover); border-radius: 4px; padding: 1px 5px; }
+.lb pre code { background: none; padding: 0; }
+.lb a { color: var(--accent-soft); }
+.lb-table { border-collapse: collapse; width: 100%; font-size: 15px; line-height: 1.5; margin: 6px 0; }
+.lb-table th, .lb-table td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; }
+.lb-table th { background: var(--hover); font-weight: 600; }
+.lb-input.lb-k-code, .lb-input.lb-k-table { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 14px; line-height: 1.55; }
+.lb-below { min-height: 240px; cursor: text; }
