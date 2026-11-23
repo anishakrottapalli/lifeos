@@ -34,6 +34,8 @@ export function CourseParts({ course, go, beforeChange }: { course: Item; go: (r
     go({ view: "item", id: made.id });
   }
 
+  // A lesson holds the files itself. Classes only show up for lessons that already have some.
+  if (isLesson && lessons.length === 0) return null;
   return (
     <>
       <section>
@@ -42,12 +44,14 @@ export function CourseParts({ course, go, beforeChange }: { course: Item; go: (r
             {isLesson ? "Classes" : "Lessons"}
             {lessons.length ? ` (${lessons.length})` : ""}
           </h3>
-          <button className="small-button" onClick={() => setAdding(true)}>
-            + Add {childKind}
-          </button>
+          {!isLesson && (
+            <button className="small-button" onClick={() => setAdding(true)}>
+              + Add {childKind}
+            </button>
+          )}
         </div>
         {lessons.length === 0 ? (
-          <p className="muted small">{isLesson ? "Each class gets its own folder, with its own notes and files." : "Each lesson gets its own folder, and holds its classes."}</p>
+          <p className="muted small">{isLesson ? "Each class gets its own folder, with its own notes and files." : "Each lesson gets its own folder and holds its files."}</p>
         ) : (
           <ul className="list">
             {lessons.map((p) => (

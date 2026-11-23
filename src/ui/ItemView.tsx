@@ -137,7 +137,8 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
   const isCourse = draft.module === "courses";
   const courseKids = isCourse ? store.index.courseParts(draft) : [];
   const hasLessons = courseKids.some((k) => k.kind === "lesson");
-  const showFiles = !isCourse || draft.kind === "class" || (!draft.kind && !hasLessons);
+  const showFiles = !isCourse || draft.kind === "class" || draft.kind === "lesson" || (!draft.kind && !hasLessons);
+  const isLesson = draft.kind === "lesson";
   // Courses › Program › Course › Lesson › this page (each part but the last is a link back up).
   const courseTrail: { label: string; open: Route }[] = [];
   if (isCourse) {
@@ -386,7 +387,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
       {!isProject && showFiles && (
       <section>
         <div className="section-head">
-          <h3>Files</h3>
+          {isLesson ? <span /> : <h3>Files</h3>}
           <span className="row-actions">
           <button
             className="small-button"
@@ -413,7 +414,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
                 </svg>
               </span>
               <strong>Drag files here</strong>
-              <span className="muted small">Notes, worksheets, anything for this {draft.kind === "class" ? "class" : "course"}.</span>
+              <span className="muted small">Notes, worksheets, anything for this {draft.kind === "class" ? "class" : isLesson ? "lesson" : "course"}.</span>
             </div>
           ) : (
             <p className="muted small">No files. Added files are moved (not copied) into this item's folder.</p>
