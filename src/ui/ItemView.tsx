@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { FieldDef, Item } from "../core/types";
-import { dirName, join, today } from "../core/paths";
+import { dirName, fileName, join, today } from "../core/paths";
 import { inTauri } from "../core/storage";
 import { displayValue, timeAgo, useStore, type Route } from "./hooks";
 import { LinkPicker } from "./LinkPicker";
@@ -138,6 +138,17 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
   const courseKids = isCourse ? store.index.courseParts(draft) : [];
   const hasLessons = courseKids.some((k) => k.kind === "lesson");
   const showFiles = !isCourse || draft.kind === "class" || (!draft.kind && !hasLessons);
+  // Courses › Program › Course › Lesson › this page (each part but the last is a link back up).
+  const courseTrail: { label: string; open: Route }[] = [];
+  if (isCourse) {
+    const up: Item[] = [];
+    for (let c = store.index.courseParent(draft); c; c = store.index.courseParent(c)) up.unshift(c);
+    const prog = store.index.programOf(up[0] ?? draft);
+    if (prog) courseTrail.push({ label: fileName(prog), open: { view: "program", dir: prog } });
+    for (const c of up) courseTrail.push({ label: c.title, open: { view: "item", id: c.id } });
+  }
+  const courseLink = isCourse && /^https?:\/\//i.test(displayValue(draft.fields["Link"]).trim()) ? displayValue(draft.fields["Link"]).trim() : "";
+  const providerName = isCourse ? displayValue(draft.fields["Provider"]).trim() : "";
   const showCertificate = isCourse && !draft.kind && store.index.isTopLevelCourse(draft);
 
   async function addCourseFilesNow(paths: string[]) {
@@ -151,7 +162,26 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
   return (
     <div className={`page item-page ${embedded ? "embedded" : ""} ${dropping ? "dropping" : ""} ${isCourse ? "course-page" : ""}`}>
       <div className="crumbs">
-        {!embedded && (
+        {!embedded && isCourse && (
+          <>
+            <button className="link" onClick={() => go({ view: "module", id: "courses" })}>
+              Courses
+            </button>
+            {courseTrail.map((t, i) => (
+              <span key={i} className="crumb-step">
+                <span aria-hidden="true">›</span>
+                <button className="link" onClick={() => go(t.open)}>
+                  {t.label}
+                </button>
+              </span>
+            ))}
+            <span className="crumb-step">
+              <span aria-hidden="true">›</span>
+              <span className="crumb-here">{draft.title}</span>
+            </span>
+          </>
+        )}
+        {!embedded && !isCourse && (
           <>
             <button className="link" onClick={() => go({ view: "module", id: host.id })}>
               {host.icon} {host.name}
@@ -183,7 +213,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
             <span className="muted small">Folder</span>
             <span className="path folder-path">LifeOS/{dir}</span>
           </div>
-        ) : draft.kind ? (
+        ) : draft.kind || isCourse ? (
           <span />
         ) : (
         <label className="meta">
@@ -243,9 +273,22 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
 
       {shownFields.length > 0 && (
         <section className={`fields ${isCourse ? "info-row" : ""}`}>
+          {providerName && (
+            <span className="provider-badge" aria-hidden="true" title={providerName}>
+              {/linkedin/i.test(providerName) ? "in" : providerName.charAt(0).toUpperCase()}
+            </span>
+          )}
           {shownFields.map((f) => (
             <FieldInput key={f.key} def={f} value={draft.fields[f.key]} onChange={(v) => setField(f.key, v)} />
           ))}
+          {courseLink && (
+            <button className="primary open-course" onClick={() => store.storage.openUrl(courseLink)}>
+              Open course
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M7 17L17 7 M9 7h8v8" />
+              </svg>
+            </button>
+          )}
         </section>
       )}
       {isModulePage && (
@@ -292,6 +335,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
         />
       )}
 
+      <div className="course-cols">
       {showCertificate && (
         <CertificatePanel
           dir={store.index.courseDir(draft)}
@@ -361,7 +405,19 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
           </span>
         </div>
         {attached.length === 0 && inFolder.length === 0 ? (
-          <p className="muted small">No files. Added files are moved (not copied) into this item's folder.</p>
+          isCourse ? (
+            <div className="drop-zone">
+              <span className="drop-zone-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M12 16V5 M7.5 9.5L12 5l4.5 4.5 M5 19h14" />
+                </svg>
+              </span>
+              <strong>Drag files here</strong>
+              <span className="muted small">Notes, worksheets, anything for this {draft.kind === "class" ? "class" : "course"}.</span>
+            </div>
+          ) : (
+            <p className="muted small">No files. Added files are moved (not copied) into this item's folder.</p>
+          )
         ) : (
           <ul className="list">
             {attached.map((f) => (
@@ -394,6 +450,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
         )}
       </section>
       )}
+      </div>
 
       <section>
         <div className="section-head">
