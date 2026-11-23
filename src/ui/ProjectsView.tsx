@@ -31,7 +31,7 @@ export function ProjectsView({ go }: { go: (r: Route) => void }) {
           <div className="actions">
             <button onClick={() => store.storage.mkdir(mod.folder).then(() => store.storage.reveal(mod.folder))}>Show in Finder</button>
             <button className="primary" onClick={() => setCreating(true)}>
-              + New project
+              New project
             </button>
           </div>
         </div>
@@ -56,7 +56,7 @@ export function ProjectsView({ go }: { go: (r: Route) => void }) {
           </button>
         </div>
       ) : (
-        <table className="table">
+        <table className="table flat-table">
           <thead>
             <tr>
               <th>Project</th>
