@@ -1,8 +1,18 @@
 import { useMemo, useState } from "react";
-import { displayValue, useStore, type Route } from "./hooks";
+import { displayValue, statusClass, useStore, type Route } from "./hooks";
 import { FieldEditor } from "./FieldEditor";
 import { Modal } from "./Modal";
 import { dirName, fileName } from "../core/paths";
+
+function CertIcon() {
+  return (
+    <svg className="cert-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" role="img" aria-label="Certified">
+      <circle cx="12" cy="9" r="5.5" />
+      <path d="M9.5 9l1.8 1.8L14.8 7.3" />
+      <path d="M8.5 13.6L7 21l5-2.5 5 2.5-1.5-7.4" />
+    </svg>
+  );
+}
 
 export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) => void }) {
   const store = useStore();
@@ -11,6 +21,7 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
   const [tag, setTag] = useState("");
   const [folder, setFolder] = useState("");
   const [editingFields, setEditingFields] = useState(false);
+  const [show, setShow] = useState("All");
 
   // In Courses, the courses inside a program are listed on the program's page, not here.
   // (An app also shows the notes of the apps folded into it: Wisdom Drops holds Quotes & Tweets.)
@@ -27,11 +38,19 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
   const shown = (filter ? store.index.search(filter, moduleId) : all).filter(
     (i) => (!tag || i.tags.includes(tag)) && (!folder || folderOf(i) === folder || folderOf(i).startsWith(folder + "/")),
   );
+  const isCourses = moduleId === "courses";
+  const passes = (status: string, certified: boolean) =>
+    show === "All" ||
+    (show === "Certified" ? certified : (status === "Ongoing" ? "Active" : status) === show);
+  const shownRows = isCourses ? shown.filter((i) => passes(displayValue(i.fields["Status"]), store.index.isCertified(i))) : shown;
   const columns = mod.fields.slice(0, 3);
   // In Courses, a program (a folder of courses) is a row too.
   const programRows =
     moduleId === "courses" && !tag && !folder
-      ? store.index.programs().filter((d) => !filter || fileName(d).toLowerCase().includes(filter.toLowerCase()))
+      ? store.index
+          .programs()
+          .filter((d) => !filter || fileName(d).toLowerCase().includes(filter.toLowerCase()))
+          .filter((d) => passes("", !!store.index.certificateOf(d)) || show === "All")
       : [];
   const [newProgram, setNewProgram] = useState(false);
   const [progName, setProgName] = useState("");
@@ -74,7 +93,7 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
             {docs && <button onClick={() => go({ view: "item", id: docs.id })}>Docs</button>}
             <button onClick={() => setEditingFields(true)}>Fields</button>
             <button className="primary" onClick={add}>
-              + New
+              {moduleId === "courses" ? "+ Add course" : "+ New"}
             </button>
           </div>
         </div>
@@ -99,6 +118,15 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
           </select>
         )}
       </div>
+      {isCourses && (
+        <div className="filter-pills" role="group" aria-label="Show">
+          {["All", "Active", "Up Next", "Completed", "Certified"].map((f) => (
+            <button key={f} className={`chip ${show === f ? "on" : ""}`} aria-pressed={show === f} onClick={() => setShow(f)}>
+              {f}
+            </button>
+          ))}
+        </div>
+      )}
       {tags.length > 0 && (
         <div className="chips">
           {tags.map((t) => (
@@ -109,7 +137,7 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
         </div>
       )}
 
-      {shown.length === 0 && programRows.length === 0 ? (
+      {shownRows.length === 0 && programRows.length === 0 ? (
         <div className="empty">
           <p>{all.length ? "Nothing matches." : `No items in ${mod.name} yet.`}</p>
           {!all.length && (
@@ -119,6 +147,47 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
           )}
         </div>
       ) : (
+        isCourses ? (
+        <table className="table courses-table">
+          <thead>
+            <tr>
+              <th>Course</th>
+              <th>Status</th>
+              <th>Provider</th>
+              <th>Instructor</th>
+              <th>Certification</th>
+            </tr>
+          </thead>
+          <tbody>
+            {programRows.map((d) => (
+              <tr key={d} onClick={() => go({ view: "program", dir: d })}>
+                <td>
+                  <div className="strong">{fileName(d)}</div>
+                  <div className="muted small">Program · {store.index.programCourses(d).length} courses</div>
+                </td>
+                <td />
+                <td className="muted">—</td>
+                <td className="muted">—</td>
+                <td>{store.index.certificateOf(d) ? <CertIcon /> : null}</td>
+              </tr>
+            ))}
+            {shownRows.map((i) => {
+              const status = displayValue(i.fields["Status"]);
+              return (
+                <tr key={i.id} onClick={() => go({ view: "item", id: i.id })}>
+                  <td>
+                    <div className="strong">{i.title}</div>
+                  </td>
+                  <td>{status ? <span className={`status-pill ${statusClass(status)}`}>{status === "Ongoing" ? "Active" : status}</span> : null}</td>
+                  <td className={i.fields["Provider"] ? "" : "muted"}>{displayValue(i.fields["Provider"]) || "—"}</td>
+                  <td className={i.fields["Instructor"] ? "" : "muted"}>{displayValue(i.fields["Instructor"]) || "—"}</td>
+                  <td>{store.index.isCertified(i) ? <CertIcon /> : null}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        ) : (
         <table className="table">
           <thead>
             <tr>
@@ -150,6 +219,7 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
             ))}
           </tbody>
         </table>
+        )
       )}
 
       {loose.length > 0 && (

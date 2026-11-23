@@ -242,20 +242,20 @@ export class LifeIndex {
     return top.length === 1 ? top[0] : undefined;
   }
 
-  /** "Part 1 of 7" for a course inside a program, "Lesson 2 of 6" for a lesson ("" for anything else). */
+  /** "Course 1 of 7" for a course inside a program, "Lesson 2 of 6" for a lesson, "Class 3 of 4" for a class ("" for anything else). */
   partLabel(item: Item): string {
-    if (item.kind === "lesson") {
+    if (item.kind === "lesson" || item.kind === "class") {
       const parent = this.courseParent(item);
       if (!parent) return "";
-      const all = this.courseParts(parent).filter((c) => c.kind === "lesson");
+      const all = this.courseParts(parent).filter((c) => c.kind === item.kind);
       const i = all.findIndex((c) => c.id === item.id);
-      return i < 0 ? "" : `Lesson ${i + 1} of ${all.length}`;
+      return i < 0 ? "" : `${item.kind === "class" ? "Class" : "Lesson"} ${i + 1} of ${all.length}`;
     }
     const dir = this.programOf(item);
     if (!dir || !this.isCourseFolder(item)) return "";
     const all = this.programCourses(dir).filter((c) => this.isCourseFolder(c));
     const i = all.findIndex((c) => c.id === item.id);
-    return i < 0 ? "" : `Part ${i + 1} of ${all.length}`;
+    return i < 0 ? "" : `Course ${i + 1} of ${all.length}`;
   }
 
   /**
@@ -265,12 +265,37 @@ export class LifeIndex {
   courseFiles(item: Item): { attached: string[]; inFolder: string[] } {
     const dir = dirName(item.path);
     const here = new Set(this.entries.filter((e) => dirName(e.path) === dir).map((e) => fileName(e.path)));
-    const attached = item.files.filter((f) => here.has(f));
+    const isCert = (n: string) => /^certificate( \d+)?$/i.test(stripExt(n));
+    const attached = item.files.filter((f) => here.has(f) && !isCert(f));
     if (!this.isCourseFolder(item)) return { attached, inFolder: [] };
     const inFolder = [...here]
-      .filter((n) => !isNote(join(dir, n)) && !isBoardFile(join(dir, n)) && !n.startsWith(".") && !attached.includes(n))
+      .filter((n) => !isNote(join(dir, n)) && !isBoardFile(join(dir, n)) && !n.startsWith(".") && !attached.includes(n) && !isCert(n))
       .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
     return { attached, inFolder };
+  }
+
+  /**
+   * The certificate of a course or program: a file named "Certificate" (any kind, usually a PDF) in its folder.
+   * Returns the file's path, or undefined.
+   */
+  certificateOf(dir: string): string | undefined {
+    const hit = this.entries
+      .filter((e) => dirName(e.path) === dir && /^certificate( \d+)?$/i.test(stripExt(fileName(e.path))))
+      .map((e) => e.path)
+      .sort((a, b) => a.localeCompare(b));
+    return hit[0];
+  }
+
+  /** The folder a course (or lesson, class) keeps its own files in, if it has one. */
+  courseDir(item: Item): string | undefined {
+    return this.isCourseFolder(item) ? dirName(item.path) : undefined;
+  }
+
+  /** Does a course count as certified: marked Yes, or a certificate file is in its folder. */
+  isCertified(item: Item): boolean {
+    if (String(item.fields["Certification"] ?? "").toLowerCase() === "yes") return true;
+    const dir = this.courseDir(item);
+    return !!dir && !!this.certificateOf(dir);
   }
 
   /** What sits directly inside a course: its courses and lessons, in the order they were added. */

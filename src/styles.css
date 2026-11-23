@@ -346,3 +346,35 @@ ul.plain { margin: 6px 0 0; padding-left: 18px; line-height: 1.7; }
 .bicon-label { font-size: 12px; line-height: 1.3; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .bicon-x { position: absolute; top: 0; right: 2px; }
 .bcard.selected { border-color: var(--accent); }
+
+/* ---------- courses ---------- */
+.status-pill { display: inline-block; font-size: 12px; font-weight: 500; padding: 4px 12px; border-radius: 999px; background: var(--chip); color: var(--text); white-space: nowrap; }
+.status-pill.good { background: var(--good-bg); color: var(--good); }
+.status-pill.warn { background: var(--warn-bg); color: var(--warn); }
+.status-pill.active { background: var(--chip); color: var(--accent-soft); }
+.filter-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.filter-pills .chip { padding: 6px 16px; font-size: 13px; cursor: pointer; }
+.courses-table td, .courses-table th { padding: 14px 14px; }
+.courses-table td { vertical-align: middle; }
+.courses-table tbody td:first-child .strong { font-size: 15px; }
+.cert-icon { color: var(--good); display: block; }
+.part-label { flex: 0 0 110px; text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; }
+.course-page .title-input { font-size: 40px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; line-height: 1.15; }
+.course-page .fields.info-row {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 36px; padding: 18px 0; margin: 18px 0 26px;
+  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+}
+.course-page .fields.info-row .field { min-width: 150px; }
+.certificate { margin-bottom: 26px; max-width: 460px; }
+.cert-preview { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.cert-preview img, .cert-preview object { width: 100%; max-width: 460px; height: 300px; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; object-fit: contain; }
+.drop-area {
+  width: 100%; min-height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  border: 1.5px dashed var(--line-strong); border-radius: var(--radius); background: transparent; text-align: center; padding: 20px;
+}
+.drop-area:hover { background: var(--hover); }
+
+/* page titles like the design: big, capitals, spaced out, no emoji */
+.page-title-row h1 { font-size: 44px; line-height: 1.1; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
+.title-icon { display: none; }
+.page-head { margin-bottom: 26px; }

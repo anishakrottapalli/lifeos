@@ -40,3 +40,12 @@ export function displayValue(v: unknown): string {
   if (v === false) return "";
   return String(v);
 }
+
+/** The pill colour for a course's Status ("Active" also covers the older "Ongoing"). */
+export function statusClass(status: string): string {
+  const s = status.toLowerCase();
+  if (s === "completed") return "good";
+  if (s === "up next") return "warn";
+  if (s === "active" || s === "ongoing") return "active";
+  return "";
+}

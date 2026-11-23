@@ -599,7 +599,7 @@ describe("files on a course page", () => {
     expect(mem.files.get("Courses/Spanish/slides.pdf")?.text).toBe("x");
   });
 
-  it("shows 'Part 1 of 3' and 'Lesson 2 of 2', and lists the files in a folder, not ones moved away", async () => {
+  it("shows 'Course 1 of 3' and 'Lesson 2 of 2', and lists the files in a folder, not ones moved away", async () => {
     const { mem, store } = await fresh();
     const base = "Courses/UX Certificate";
     await store.createProgram("UX Certificate", "Intro to UX Design");
@@ -607,8 +607,8 @@ describe("files on a course page", () => {
     const fe = await store.addCourseToProgram(base, "Front-End Development");
     const l1 = await store.addCourseLesson(fe, "1 - Getting Started with HTML & CSS");
     const l2 = await store.addCourseLesson(store.index.items.get(fe.id)!, "2 - JavaScript & Your Portfolio Site");
-    expect(store.index.partLabel(store.index.items.get(fe.id)!)).toBe("Part 3 of 3");
-    expect(store.index.partLabel(store.index.programCourses(base)[0])).toBe("Part 1 of 3");
+    expect(store.index.partLabel(store.index.items.get(fe.id)!)).toBe("Course 3 of 3");
+    expect(store.index.partLabel(store.index.programCourses(base)[0])).toBe("Course 1 of 3");
     expect(store.index.partLabel(l1)).toBe("Lesson 1 of 2");
     expect(store.index.partLabel(l2)).toBe("Lesson 2 of 2");
     // PDFs the Front-End page once listed were moved into the lesson folders in Finder
@@ -624,6 +624,52 @@ describe("files on a course page", () => {
     expect(store.index.courseFiles(store.index.items.get(l1.id)!).inFolder).toEqual(["1.1 - Start.pdf"]);
     expect(store.index.courseFiles(store.index.items.get(l2.id)!).inFolder).toEqual(["2.1 - JS.pdf", "2.2 - More.pdf"]);
     expect(store.index.courseParent(store.index.items.get(l1.id)!)?.id).toBe(fe.id);
+  });
+
+  it("a lesson holds classes (Class 1 of 2…), and a class is a folder of its own", async () => {
+    const { mem, store } = await fresh();
+    const base = "Courses/UX Certificate";
+    await store.createProgram("UX Certificate", "Intro to UX Design");
+    const course = await store.addCourseToProgram(base, "UX Immersion");
+    const lesson = await store.addCourseLesson(course, "Lesson 1");
+    const c1 = await store.addCourseClass(lesson, "Class 1");
+    const c2 = await store.addCourseClass(store.index.items.get(lesson.id)!, "Class 2");
+    expect(c1.kind).toBe("class");
+    expect(c1.path).toBe(`${base}/UX Immersion/Lesson 1/Class 1/Class 1.md`);
+    expect(store.index.partLabel(c1)).toBe("Class 1 of 2");
+    expect(store.index.partLabel(store.index.items.get(c2.id)!)).toBe("Class 2 of 2");
+    expect(store.index.courseParent(store.index.items.get(c1.id)!)?.id).toBe(lesson.id);
+    // classes are not lessons: the lesson count of the course is still 1
+    expect(store.index.courseParts(store.index.items.get(course.id)!).filter((i) => i.kind === "lesson")).toHaveLength(1);
+    // files go into the class folder
+    mem.external.set("/Users/you/Desktop/worksheet.pdf", "w");
+    await store.addCourseFiles(store.index.items.get(c1.id)!, ["/Users/you/Desktop/worksheet.pdf"]);
+    expect(mem.files.has(`${base}/UX Immersion/Lesson 1/Class 1/worksheet.pdf`)).toBe(true);
+  });
+
+  it("a certificate is the file named Certificate in a course or program folder; it never overwrites", async () => {
+    const { mem, store } = await fresh();
+    const course = await store.createItem("courses", "Speaking Up At Work", "", {});
+    expect(store.index.isCertified(course)).toBe(false);
+    mem.external.set("/Users/you/Desktop/mycert.pdf", "A");
+    mem.external.set("/Users/you/Desktop/other.pdf", "B");
+    await store.addCertificate({ course }, "/Users/you/Desktop/mycert.pdf");
+    const c = store.index.items.get(course.id)!;
+    expect(c.path).toBe("Courses/Speaking Up At Work/Speaking Up At Work.md");
+    expect(store.index.certificateOf("Courses/Speaking Up At Work")).toBe("Courses/Speaking Up At Work/Certificate.pdf");
+    expect(c.fields["Certification"]).toBe("Yes");
+    expect(store.index.isCertified(c)).toBe(true);
+    // the certificate isn't listed as an ordinary file
+    expect(store.index.courseFiles(c)).toEqual({ attached: [], inFolder: [] });
+    // a second one is kept beside it
+    await store.addCertificate({ course: c }, "/Users/you/Desktop/other.pdf");
+    expect(mem.files.get("Courses/Speaking Up At Work/Certificate.pdf")?.text).toBe("A");
+    expect(mem.files.has("Courses/Speaking Up At Work/Certificate 2.pdf")).toBe(true);
+    // a program (only a folder) can hold one too
+    await store.createProgram("IBM", "Course 1");
+    mem.external.set("/Users/you/Desktop/ibm.pdf", "C");
+    await store.addCertificate({ programDir: "Courses/IBM" }, "/Users/you/Desktop/ibm.pdf");
+    expect(store.index.certificateOf("Courses/IBM")).toBe("Courses/IBM/Certificate.pdf");
   });
 });
 

@@ -6,6 +6,7 @@ import { displayValue, timeAgo, useStore, type Route } from "./hooks";
 import { LinkPicker } from "./LinkPicker";
 import { renderMarkdown } from "./markdown";
 import { CourseParts } from "./CourseParts";
+import { CertificatePanel } from "./CertificatePanel";
 import { hasOverview } from "../core/projects";
 
 const SAVE_DELAY = 700;
@@ -123,7 +124,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
   const isProject = draft.kind === "project";
   const isModulePage = draft.kind === "module";
   const isLog = draft.kind === "docs" || isModulePage;
-  const shownFields = isProject || !draft.kind || draft.kind === "lesson" ? mod.fields : [];
+  const shownFields = isProject || !draft.kind || draft.kind === "lesson" || draft.kind === "class" ? mod.fields : [];
   const owner = store.index.projectFor(draft);
   const backlinks = store.index.backlinks(draft.id);
   const folders = store.index.subfolders(draft.module);
@@ -131,6 +132,13 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
   // A course or lesson shows the files in its folder (even ones put there in Finder) and not ones moved away.
   const { attached, inFolder } = draft.module === "courses" ? store.index.courseFiles(draft) : { attached: draft.files, inFolder: [] as string[] };
   const partLabel = draft.module === "courses" ? store.index.partLabel(draft) : "";
+  // Course pages: a course shows a certificate (if it is on the main list) and files when it has no lessons;
+  // a lesson only lists its classes; a class is where the files go.
+  const isCourse = draft.module === "courses";
+  const courseKids = isCourse ? store.index.courseParts(draft) : [];
+  const hasLessons = courseKids.some((k) => k.kind === "lesson");
+  const showFiles = !isCourse || draft.kind === "class" || (!draft.kind && !hasLessons);
+  const showCertificate = isCourse && !draft.kind && store.index.isTopLevelCourse(draft);
 
   async function addCourseFilesNow(paths: string[]) {
     if (!paths.length) return;
@@ -141,7 +149,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
   addDropRef.current = addCourseFilesNow;
 
   return (
-    <div className={`page item-page ${embedded ? "embedded" : ""} ${dropping ? "dropping" : ""}`}>
+    <div className={`page item-page ${embedded ? "embedded" : ""} ${dropping ? "dropping" : ""} ${isCourse ? "course-page" : ""}`}>
       <div className="crumbs">
         {!embedded && (
           <>
@@ -234,7 +242,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
       </div>
 
       {shownFields.length > 0 && (
-        <section className="fields">
+        <section className={`fields ${isCourse ? "info-row" : ""}`}>
           {shownFields.map((f) => (
             <FieldInput key={f.key} def={f} value={draft.fields[f.key]} onChange={(v) => setField(f.key, v)} />
           ))}
@@ -284,7 +292,17 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
         />
       )}
 
-      {!isProject && <TagInput tags={draft.tags} all={store.index.allTags()} onChange={(tags) => change({ tags }, { now: true })} />}
+      {showCertificate && (
+        <CertificatePanel
+          dir={store.index.courseDir(draft)}
+          onAdd={async (p) => {
+            if (dirtyRef.current) await persist(latest.current!, false);
+            await store.addCertificate({ course: store.index.items.get(itemId) ?? latest.current! }, p);
+          }}
+        />
+      )}
+
+      {!isProject && !isCourse && <TagInput tags={draft.tags} all={store.index.allTags()} onChange={(tags) => change({ tags }, { now: true })} />}
 
       {(!isProject || hasOverview(draft.body)) && draft.module !== "courses" && (
       <section className="body-section">
@@ -321,7 +339,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
       </section>
       )}
 
-      {!isProject && (
+      {!isProject && showFiles && (
       <section>
         <div className="section-head">
           <h3>Files</h3>

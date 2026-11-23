@@ -868,27 +868,56 @@ export class LifeStore {
     });
   }
 
-  /** Add a lesson to a course. A lesson is a page in a folder of its own, so its notes and PDFs sit together. */
+  /** Add a lesson to a course. A lesson is a page in a folder of its own, so its classes sit together. */
   async addCourseLesson(course: Item, title: string): Promise<Item> {
-    return this.run(() => this.addLessonNow(course, title));
+    return this.run(() => this.addChildNow(course, "lesson", title));
   }
 
-  private async addLessonNow(course: Item, title: string, status = ""): Promise<Item> {
+  /** Add a class to a lesson. A class is a folder of its own too; it is where the notes and files go. */
+  async addCourseClass(lesson: Item, title: string): Promise<Item> {
+    return this.run(() => this.addChildNow(lesson, "class", title));
+  }
+
+  private async addChildNow(parent: Item, kind: "lesson" | "class", title: string, status = ""): Promise<Item> {
     {
       const mod = this.projectsLike("courses");
-      const program = await this.makeCourseFolderNow(course);
+      const program = await this.makeCourseFolderNow(parent);
       const dir = dirName(program.path);
       const name = uniqueName(safeName(title), "", (n) => this.dirTaken(join(dir, n)));
       const path = join(dir, name, `${name}.md`);
       const rel = join(dir, name).slice(mod.folder.length).replace(/^\//, "");
-      const lesson = this.blankItem(mod.id, "lesson", title.trim() || name, path, "", rel);
-      const n = this.index.courseParts(program).filter((i) => i.kind === "lesson").reduce((m, i) => Math.max(m, Number(i.fields["Part"]) || 0), 0) + 1;
-      lesson.fields = { ...(status ? { Status: status } : {}), Part: n };
-      await this.writeNote(path, serializeItem(lesson, mod));
+      const child = this.blankItem(mod.id, kind, title.trim() || name, path, "", rel);
+      const n = this.index.courseParts(program).filter((i) => i.kind === kind).reduce((m, i) => Math.max(m, Number(i.fields["Part"]) || 0), 0) + 1;
+      child.fields = { ...(status ? { Status: status } : {}), Part: n };
+      await this.writeNote(path, serializeItem(child, mod));
       this.index.entries.push({ path, mtime: Date.now(), size: 0 });
       await this.rescanNow();
-      return this.index.byPath.get(path) ?? lesson;
+      return this.index.byPath.get(path) ?? child;
     }
+  }
+
+  /**
+   * Add a certificate (a PDF or picture) to a course or a program folder. It is moved in as "Certificate.<ext>"
+   * (never overwriting: "Certificate 2" if one is already there). A course on its own gets its own folder first.
+   */
+  async addCertificate(target: { course: Item } | { programDir: string }, absPath: string): Promise<void> {
+    return this.run(async () => {
+      let dir: string;
+      if ("programDir" in target) dir = target.programDir;
+      else {
+        let c = this.index.items.get(target.course.id) ?? target.course;
+        if (!this.index.isCourseFolder(c) && !this.index.courseParent(c)) c = await this.makeCourseFolderNow(c);
+        dir = dirName(c.path);
+      }
+      const orig = absPath.split(/[\\/]/).pop() || "Certificate";
+      const name = uniqueName("Certificate", extName(orig), this.taken(dir));
+      await this.storage.importFile(absPath, join(dir, name));
+      this.index.entries.push({ path: join(dir, name), mtime: Date.now(), size: 0 });
+      if ("course" in target) {
+        const c = this.index.items.get(target.course.id) ?? target.course;
+        await this.saveNow({ ...c, fields: { ...c.fields, Certification: "Yes" } }, false);
+      }
+    });
   }
 
   /**
