@@ -124,7 +124,8 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
   const isProject = draft.kind === "project";
   const isModulePage = draft.kind === "module";
   const isLog = draft.kind === "docs" || isModulePage;
-  const shownFields = isProject || !draft.kind || draft.kind === "lesson" || draft.kind === "class" ? mod.fields : [];
+  // Provider, Instructor, Link and Certification belong to the course; a lesson or class only has its Status.
+  const shownFields = isProject || !draft.kind ? mod.fields : draft.kind === "lesson" || draft.kind === "class" ? mod.fields.filter((f) => f.key === "Status") : [];
   const owner = store.index.projectFor(draft);
   const backlinks = store.index.backlinks(draft.id);
   const folders = store.index.subfolders(draft.module);
