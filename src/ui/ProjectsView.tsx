@@ -61,6 +61,7 @@ export function ProjectsView({ go }: { go: (r: Route) => void }) {
             <tr>
               <th>Project</th>
               <th>Type</th>
+              <th>Sub-projects</th>
               <th>Updated</th>
             </tr>
           </thead>
@@ -69,11 +70,14 @@ export function ProjectsView({ go }: { go: (r: Route) => void }) {
               <tr key={p.id} onClick={() => go({ view: "item", id: p.id })}>
                 <td className="strong">
                   <span style={{ paddingLeft: depth(p) * 22 }}>
-                    {depth(p) > 0 && <span className="muted">↳ </span>}
+                    <svg className="folder-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+                    </svg>
                     {p.title}
                   </span>
                 </td>
                 <td>{displayValue(p.fields["Type"])}</td>
+                <td className="muted">{allProjects.filter((q) => store.index.parentProject(q)?.id === p.id).length || "—"}</td>
                 <td className="muted small">{timeAgo(p.updated)}</td>
               </tr>
             ))}

@@ -26,7 +26,8 @@
   --row-on: rgba(29, 24, 48, 0.08);
   --crumb: #483d6b;
   --topbar-h: 62px;
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", sans-serif;
+  --font-heading: "Space Grotesk", "Inter", -apple-system, sans-serif;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
   font-size: 14px;
   color: var(--text);
   background: var(--bg);
@@ -455,3 +456,15 @@ h1.day-title { font-size: 40px; font-weight: 500; letter-spacing: 0.05em; text-t
 .flat-table td.strong { font-size: 17px; font-weight: 600; }
 .flat-table tbody tr:last-child td { border-bottom: 1px solid var(--line); }
 .flat-table tbody tr:first-child td { border-top: 1px solid var(--line); }
+
+/* ---------- design refresh 2: fonts, section headings, course rows ---------- */
+h1, h1.hero, h1.day-title, .page-title-row h1, .course-page .title-input, .title-input { font-family: var(--font-heading); }
+.hero-date, .project-title { font-family: var(--font-heading); }
+.item-page section > h3, .item-page .section-head h3, .certificate .section-head h3 {
+  font-family: var(--font-heading); font-size: 20px; font-weight: 500; letter-spacing: 0.06em; text-transform: none; color: var(--text); margin: 0;
+}
+.course-page .list { border: none; background: transparent; border-radius: 0; border-bottom: 1px solid var(--line); }
+.course-page .list .row { padding: 22px 4px; }
+.course-page .list .row-title { font-size: 18px; font-weight: 600; }
+.insert-bar button { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border-radius: 999px; background: transparent; }
+.folder-icon { color: var(--muted); flex-shrink: 0; margin-right: 12px; vertical-align: -4px; }

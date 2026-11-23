@@ -281,6 +281,9 @@ export function JournalDay({ itemId, go }: { itemId: string; go: (r: Route) => v
           <span className="eyebrow">Insert</span>
           {INSERTS.map((k) => (
             <button key={k.label} onClick={async () => add(await store.storage.pickFiles(k.only))}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d={k.icon} />
+              </svg>
               {k.label}
             </button>
           ))}
@@ -329,8 +332,8 @@ export function JournalDay({ itemId, go }: { itemId: string; go: (r: Route) => v
   );
 }
 
-const INSERTS: { label: string; only: { name: string; extensions: string[] } }[] = [
-  { label: "Picture", only: { name: "Pictures", extensions: ["png", "jpg", "jpeg", "gif", "webp", "heic", "tiff"] } },
-  { label: "Video", only: { name: "Videos", extensions: ["mp4", "mov", "m4v", "webm"] } },
-  { label: "Audio", only: { name: "Audio", extensions: ["m4a", "mp3", "wav", "aac", "aiff", "caf"] } },
+const INSERTS: { label: string; icon: string; only: { name: string; extensions: string[] } }[] = [
+  { label: "Picture", icon: "M4 5h16v14H4z M4 16l5-5 4 4 3-3 4 4", only: { name: "Pictures", extensions: ["png", "jpg", "jpeg", "gif", "webp", "heic", "tiff"] } },
+  { label: "Video", icon: "M4 6h16v12H4z M10 9.5l5 2.5-5 2.5z", only: { name: "Videos", extensions: ["mp4", "mov", "m4v", "webm"] } },
+  { label: "Audio", icon: "M12 4a3 3 0 00-3 3v5a3 3 0 006 0V7a3 3 0 00-3-3z M6 11a6 6 0 0012 0 M12 17v3", only: { name: "Audio", extensions: ["m4a", "mp3", "wav", "aac", "aiff", "caf"] } },
 ];
