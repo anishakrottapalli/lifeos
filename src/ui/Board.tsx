@@ -522,15 +522,6 @@ export function Board({ project, go }: { project: Item; go: (r: Route) => void }
   return (
     <div className="board-wrap">
       <div className="board-bar">
-        <button onClick={addText}>+ Text</button>
-        <button onClick={() => setNaming(true)}>+ Markdown page</button>
-        <button onClick={async () => addFiles(await store.storage.pickFiles())}>+ Pictures, videos, notes & files</button>
-        <button onClick={() => setLinking(true)} title="Put a Claude artifact, a Claude chat or any web link on the Board">
-          + Link or Claude
-        </button>
-        <button onClick={addSection} title="A labelled area. Moving it moves the cards inside it">
-          + Section
-        </button>
         {missingParts.length > 0 && (
           <select
             value={adding}
@@ -560,32 +551,70 @@ export function Board({ project, go }: { project: Item; go: (r: Route) => void }
           <button onClick={() => store.storage.reveal(dir)}>Show in Finder</button>
         </span>
       </div>
-      <div className="board-tools" role="toolbar" aria-label="Board tools">
-        {(["select", "hand", "arrow"] as const).map((t) => (
+      <div className="board-dock" role="toolbar" aria-label="Board tools">
+        {(
+          [
+            { id: "select", label: "Select", d: "M5 3l14 8-6 2-2 6z" },
+            { id: "hand", label: "Hand", d: "M8 12V6a1.5 1.5 0 013 0v5 M11 11V4.5a1.5 1.5 0 013 0V11 M14 11V6a1.5 1.5 0 013 0v7a6 6 0 01-6 6 5 5 0 01-4-2l-3-4a1.5 1.5 0 012.3-1.8L8 14" },
+          ] as const
+        ).map((t) => (
           <button
-            key={t}
-            className={`chip ${tool === t ? "on" : ""}`}
-            aria-pressed={tool === t}
+            key={t.id}
+            className={`dock-btn ${tool === t.id ? "on" : ""}`}
+            aria-pressed={tool === t.id}
             onClick={() => {
-              setTool(t);
+              setTool(t.id);
               setArrowFrom("");
-              setStatus(t === "arrow" ? "Click a card, then the card the arrow points to (Esc to stop)" : t === "hand" ? "Drag the Board to move around" : "");
+              setStatus(t.id === "hand" ? "Drag the Board to move around" : "");
             }}
           >
-            {t === "select" ? "Select" : t === "hand" ? "Hand" : "Arrow"}
+            <DockIcon d={t.d} />
+            {t.label}
           </button>
         ))}
-        <span className="zoom-control" role="group" aria-label="Zoom">
-          <button onClick={() => setZoomTo(zoom - 0.1)} aria-label="Zoom out">
-            −
-          </button>
-          <span className="zoom-value">{Math.round(zoom * 100)}%</span>
-          <button onClick={() => setZoomTo(zoom + 0.1)} aria-label="Zoom in">
-            +
-          </button>
-          <button onClick={fit}>Fit</button>
-        </span>
+        <button className="dock-btn" onClick={addText}>
+          <DockIcon d="M5 6h14 M12 6v13 M9 19h6" />
+          Text
+        </button>
+        <button className="dock-btn" onClick={async () => addFiles(await store.storage.pickFiles())} title="Pictures, videos, notes and files">
+          <DockIcon d="M12 16V5 M7.5 9.5L12 5l4.5 4.5 M5 19h14" />
+          Add files
+        </button>
+        <button className="dock-btn" onClick={() => setLinking(true)} title="Put a Claude artifact, a Claude chat or any web link on the Board">
+          <DockIcon d="M9 7l-5 5 5 5 M15 7l5 5-5 5" />
+          Embed
+        </button>
+        <button className="dock-btn" onClick={addSection} title="A labelled area. Moving it moves the cards inside it">
+          <DockIcon d="M4 6h5 M4 6v12h16V6h-7 M4 6h16" />
+          Section
+        </button>
+        <button
+          className={`dock-btn ${tool === "arrow" ? "on" : ""}`}
+          aria-pressed={tool === "arrow"}
+          onClick={() => {
+            setTool("arrow");
+            setArrowFrom("");
+            setStatus("Click a card, then the card the arrow points to (Esc to stop)");
+          }}
+        >
+          <DockIcon d="M5 19L19 5 M10 5h9v9" />
+          Arrow
+        </button>
+        <button className="dock-btn" onClick={() => setNaming(true)}>
+          <DockIcon d="M7 3h7l5 5v13H7z M14 3v5h5 M12 12v6 M9 15h6" />
+          Add page
+        </button>
       </div>
+      <span className="zoom-control board-zoom" role="group" aria-label="Zoom">
+        <button onClick={() => setZoomTo(zoom - 0.1)} aria-label="Zoom out">
+          −
+        </button>
+        <span className="zoom-value">{Math.round(zoom * 100)}%</span>
+        <button onClick={() => setZoomTo(zoom + 0.1)} aria-label="Zoom in">
+          +
+        </button>
+        <button onClick={fit}>Fit</button>
+      </span>
       {store.storage.kind === "mac" && (
         <p className="muted small board-hint">Drag pictures, videos or files from Finder onto the Board. They're moved into this project's folder.</p>
       )}
@@ -912,5 +941,15 @@ function MarkdownReader({ path, name, close }: { path: string; name: string; clo
         </div>
       </div>
     </Modal>
+  );
+}
+
+function DockIcon({ d }: { d: string }) {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {d.split(" M").map((seg, i) => (
+        <path key={i} d={(i === 0 ? "" : "M") + seg} />
+      ))}
+    </svg>
   );
 }

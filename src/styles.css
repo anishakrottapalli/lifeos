@@ -26,6 +26,8 @@
   --row-on: rgba(29, 24, 48, 0.08);
   --crumb: #483d6b;
   --topbar-h: 62px;
+  --dialog: #ffffff;
+  --field: #c9bde3;
   --font-heading: "Space Grotesk", "Inter", -apple-system, sans-serif;
   font-family: "Inter", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
   font-size: 14px;
@@ -63,6 +65,8 @@
     --pill: rgba(255, 255, 255, 0.07);
     --row-on: rgba(255, 255, 255, 0.08);
     --crumb: #b9a2f0;
+    --dialog: #1b1433;
+    --field: rgba(255, 255, 255, 0.18);
   }
 }
 
@@ -498,3 +502,40 @@ h1, h1.hero, h1.day-title, .page-title-row h1, .course-page .title-input, .title
 }
 .drop-zone-icon { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 999px; background: var(--chip); margin-bottom: 8px; }
 .drop-area { min-height: 220px; }
+
+/* ---------- design refresh 4: New project window, Projects list ---------- */
+.flat-table td { font-size: 14px; }
+.flat-table td:nth-child(2), .flat-table td:nth-child(3) { color: var(--text); }
+.modal-backdrop { background: rgba(4, 9, 18, 0.66); }
+.modal.new-project { width: min(760px, 94vw); padding: 32px 34px 28px; background: var(--dialog); border: 1px solid var(--line); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55); }
+.new-project h2 { font-family: var(--font-heading); font-weight: 500; font-size: 26px; letter-spacing: 0.06em; text-transform: uppercase; margin: 0 0 26px; }
+.new-project .form-rows { gap: 24px; margin: 0 0 24px; }
+.new-project .field-label { font-size: 13px; margin-bottom: 2px; }
+.new-project .field input:not([type=checkbox]) { height: 46px; padding: 0 16px; font-size: 15px; background: var(--pill); border-color: var(--field); }
+.new-project .choice-row { gap: 10px; }
+.new-project .choice-row button { flex: 1; height: 44px; font-size: 15px; background: transparent; border-color: var(--field); }
+.new-project .choice-row button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.new-project .parts-columns { gap: 10px 28px; margin-top: 4px; }
+.new-project .part-col { font-size: 15px; line-height: 1.4; gap: 12px; }
+.new-project .part-col ul { font-size: 13px; line-height: 1.7; margin-top: 8px; }
+.new-project .part-col input { appearance: none; -webkit-appearance: none; width: 18px; height: 18px; margin-top: 2px; border-radius: 4px; border: 1.5px solid var(--line-strong); background: transparent; padding: 0; cursor: pointer; position: relative; }
+.new-project .part-col input:checked { background: var(--accent); border-color: var(--accent); }
+.new-project .part-col input:checked::after { content: ""; position: absolute; left: 5px; top: 1px; width: 5px; height: 10px; border: solid var(--accent-text); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.new-project .note-centered { margin-top: 22px !important; }
+.new-project .modal-actions { margin-top: 30px; padding-top: 22px; border-top: 1px solid var(--line); gap: 10px; }
+.new-project .modal-actions button { height: 44px; padding: 0 22px; border-radius: 999px; font-size: 15px; background: transparent; border-color: var(--field); }
+.new-project .modal-actions button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 500; padding: 0 26px; }
+.new-project .modal-actions button:disabled { opacity: 0.4; cursor: default; }
+
+/* Board: floating tool dock at the bottom, zoom at the bottom right, like the design */
+.board-wrap { position: relative; }
+.board-bar { padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.board { border-top: none; }
+.board-dock {
+  position: absolute; left: 24px; bottom: 24px; z-index: 5; display: flex; align-items: center; gap: 4px; padding: 6px;
+  background: var(--dialog); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 14px 40px rgba(0, 0, 0, 0.4); width: max-content; max-width: calc(100% - 230px); flex-wrap: wrap;
+}
+.dock-btn { display: inline-flex; align-items: center; gap: 7px; height: 38px; padding: 0 9px; border: none; border-radius: 10px; background: transparent; color: var(--muted); font-size: 13px; }
+.dock-btn:hover { background: var(--hover); color: var(--text); }
+.dock-btn.on { background: var(--row-on); color: var(--text); }
+.board-zoom { position: absolute; right: 20px; bottom: 24px; z-index: 5; margin-left: 0; height: 40px; background: var(--dialog); }
