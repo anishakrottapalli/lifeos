@@ -125,7 +125,9 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
   const isModulePage = draft.kind === "module";
   const isLog = draft.kind === "docs" || isModulePage;
   // Provider, Instructor, Link and Certification belong to the course; a lesson or class only has its Status.
-  const shownFields = isProject || !draft.kind ? mod.fields : draft.kind === "lesson" || draft.kind === "class" ? mod.fields.filter((f) => f.key === "Status") : [];
+  // A lesson is a page inside a course (even one saved before pages had a kind).
+  const isLesson = draft.module === "courses" && (draft.kind === "lesson" || (!draft.kind && !!store.index.courseParent(draft)));
+  const shownFields = isProject ? mod.fields : isLesson || draft.kind === "class" ? mod.fields.filter((f) => f.key === "Status") : !draft.kind ? mod.fields : [];
   const owner = store.index.projectFor(draft);
   const backlinks = store.index.backlinks(draft.id);
   const folders = store.index.subfolders(draft.module);
@@ -138,8 +140,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
   const isCourse = draft.module === "courses";
   const courseKids = isCourse ? store.index.courseParts(draft) : [];
   const hasLessons = courseKids.some((k) => k.kind === "lesson");
-  const showFiles = !isCourse || draft.kind === "class" || draft.kind === "lesson" || (!draft.kind && !hasLessons);
-  const isLesson = draft.kind === "lesson";
+  const showFiles = !isCourse || draft.kind === "class" || isLesson || (!draft.kind && !hasLessons);
   // Courses › Program › Course › Lesson › this page (each part but the last is a link back up).
   const courseTrail: { label: string; open: Route }[] = [];
   if (isCourse) {
@@ -151,7 +152,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
   }
   const courseLink = isCourse && /^https?:\/\//i.test(displayValue(draft.fields["Link"]).trim()) ? displayValue(draft.fields["Link"]).trim() : "";
   const providerName = isCourse ? displayValue(draft.fields["Provider"]).trim() : "";
-  const showCertificate = isCourse && !draft.kind && store.index.isTopLevelCourse(draft);
+  const showCertificate = isCourse && !draft.kind && !isLesson && store.index.isTopLevelCourse(draft);
 
   // A lesson's files: every PDF counts as a class ("Class 2 of 5"). Files left inside old class folders still show here.
   const lessonRows: { name: string; dir: string; attached: boolean }[] = [];
@@ -351,20 +352,9 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
         />
       )}
 
-      <div className="course-cols">
-      {showCertificate && (
-        <CertificatePanel
-          dir={store.index.courseDir(draft)}
-          onAdd={async (p) => {
-            if (dirtyRef.current) await persist(latest.current!, false);
-            await store.addCertificate({ course: store.index.items.get(itemId) ?? latest.current! }, p);
-          }}
-        />
-      )}
-
       {!isProject && !isCourse && <TagInput tags={draft.tags} all={store.index.allTags()} onChange={(tags) => change({ tags }, { now: true })} />}
 
-      {(!isProject || hasOverview(draft.body)) && draft.module !== "courses" && (
+      {(!isProject || hasOverview(draft.body)) && (draft.module !== "courses" || isLesson) && (
       <section className="body-section">
         <div className="section-head">
           <h3>{isLog ? "Notes and build log" : "Notes"}</h3>
@@ -397,6 +387,17 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
           />
         )}
       </section>
+      )}
+
+      <div className="course-cols">
+      {showCertificate && (
+        <CertificatePanel
+          dir={store.index.courseDir(draft)}
+          onAdd={async (p) => {
+            if (dirtyRef.current) await persist(latest.current!, false);
+            await store.addCertificate({ course: store.index.items.get(itemId) ?? latest.current! }, p);
+          }}
+        />
       )}
 
       {!isProject && showFiles && (
