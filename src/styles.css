@@ -378,3 +378,15 @@ ul.plain { margin: 6px 0 0; padding-left: 18px; line-height: 1.7; }
 .page-title-row h1 { font-size: 44px; line-height: 1.1; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
 .title-icon { display: none; }
 .page-head { margin-bottom: 26px; }
+
+/* ---------- projects ---------- */
+.tabs { display: flex; gap: 30px; border-bottom: 1px solid var(--line); margin-bottom: 18px; }
+.tab { background: none; border: none; border-bottom: 2px solid transparent; border-radius: 0; padding: 0 0 12px; margin-bottom: -1px; color: var(--muted); font-size: 15px; }
+.tab:hover { background: none; color: var(--text); }
+.tab.on { color: var(--text); border-bottom-color: var(--text); }
+.parts-columns { display: flex; flex-wrap: wrap; gap: 8px 28px; align-items: flex-start; margin-top: 8px; }
+.parts-columns .part-col { display: flex; align-items: flex-start; gap: 10px; flex: 1 1 160px; }
+.parts-columns .part-col.wide { flex: 1.4 1 240px; }
+.parts-columns .part-col input { margin-top: 3px; flex-shrink: 0; }
+.parts-columns ul.plain { margin-top: 6px; }
+.note-centered { text-align: center; margin-top: 18px !important; }

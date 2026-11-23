@@ -2,16 +2,15 @@ import { useState } from "react";
 import type { Item } from "../core/types";
 import { displayValue, timeAgo, useStore, type Route } from "./hooks";
 import { Modal } from "./Modal";
-import { dirName } from "../core/paths";
 import { DOCS_KEY, PROJECT_GROUPS, VENTURE_PART_KEYS, type PartKey, type ProjectGroup } from "../core/projects";
-
-const SUGGESTED_SUBFOLDERS: Record<ProjectGroup, string[]> = { Personal: [], Venture: ["Content", "Software", "Services"] };
 
 export function ProjectsView({ go }: { go: (r: Route) => void }) {
   const store = useStore();
   const mod = store.module("projects")!;
   const [creating, setCreating] = useState(false);
-  const projects = store.index.projects();
+  const [tab, setTab] = useState<"All" | ProjectGroup>("All");
+  const allProjects = store.index.projects();
+  const projects = allProjects.filter((p) => tab === "All" || displayValue(p.fields["Type"]) === tab);
   const depth = (p: Item) => {
     let n = 0;
     let cur = store.index.parentProject(p);
@@ -37,11 +36,17 @@ export function ProjectsView({ go }: { go: (r: Route) => void }) {
           </div>
         </div>
         <p className="muted">
-          Each project is a folder with a Board for text, documents, videos and photos. Personal projects go in
-          Personal, ventures in Ventures. Add the Venture Ideation System or a build log when a project needs them.
-          <span className="path">LifeOS/{mod.folder}</span>
+          {allProjects.length} project{allProjects.length === 1 ? "" : "s"} · Personal and Ventures
         </p>
       </header>
+
+      <div className="tabs" role="tablist" aria-label="Show">
+        {(["All", "Personal", "Venture"] as const).map((t) => (
+          <button key={t} role="tab" aria-selected={tab === t} className={`tab ${tab === t ? "on" : ""}`} onClick={() => setTab(t)}>
+            {t === "Venture" ? "Ventures" : t}
+          </button>
+        ))}
+      </div>
 
       {projects.length === 0 ? (
         <div className="empty">
@@ -55,9 +60,7 @@ export function ProjectsView({ go }: { go: (r: Route) => void }) {
           <thead>
             <tr>
               <th>Project</th>
-              <th>Status</th>
               <th>Type</th>
-              <th>Folder</th>
               <th>Updated</th>
             </tr>
           </thead>
@@ -70,9 +73,7 @@ export function ProjectsView({ go }: { go: (r: Route) => void }) {
                     {p.title}
                   </span>
                 </td>
-                <td>{displayValue(p.fields["Status"])}</td>
                 <td>{displayValue(p.fields["Type"])}</td>
-                <td className="muted">{dirName(p.folder)}</td>
                 <td className="muted small">{timeAgo(p.updated)}</td>
               </tr>
             ))}
@@ -111,7 +112,6 @@ export function ProjectsView({ go }: { go: (r: Route) => void }) {
       {creating && (
         <NewProjectModal
           close={() => setCreating(false)}
-          folders={store.index.subfolders("projects")}
           create={async (title, folder, parts, fields) => {
             const p = await store.createProject(title, folder, fields, parts);
             setCreating(false);
@@ -126,28 +126,19 @@ export function ProjectsView({ go }: { go: (r: Route) => void }) {
 export function NewProjectModal({
   close,
   create,
-  folders,
   fixedFolder,
   heading = "New project",
 }: {
   close: () => void;
   create: (title: string, folder: string, parts: PartKey[], fields: Record<string, unknown>) => void;
-  folders?: string[];
   fixedFolder?: string;
   heading?: string;
 }) {
   const [title, setTitle] = useState("");
   const [group, setGroup] = useState<ProjectGroup>("Personal");
-  const [sub, setSub] = useState("");
   const [venture, setVenture] = useState(false);
   const [log, setLog] = useState(false);
   const top = PROJECT_GROUPS[group];
-  const subOptions = [
-    ...new Set([
-      ...SUGGESTED_SUBFOLDERS[group],
-      ...(folders ?? []).filter((f) => f.startsWith(top + "/")).map((f) => f.slice(top.length + 1)),
-    ]),
-  ].sort();
   const isSub = fixedFolder !== undefined;
 
   return (
@@ -158,7 +149,7 @@ export function NewProjectModal({
           e.preventDefault();
           if (!title.trim()) return;
           const parts = [...(venture ? VENTURE_PART_KEYS : []), ...(log ? [DOCS_KEY] : [])];
-          const folder = isSub ? fixedFolder : sub.trim() ? `${top}/${sub.trim()}` : top;
+          const folder = isSub ? fixedFolder : top;
           create(title.trim(), folder, parts, isSub ? {} : { Type: group });
         }}
       >
@@ -177,41 +168,45 @@ export function NewProjectModal({
                   </button>
                 ))}
               </div>
+              <span className="muted small">
+                Saves to <span className="strong">{top}/{title.trim() || "Name of project"}</span>
+              </span>
             </div>
-          )}
-          {!isSub && (
-            <label className="field">
-              <span className="field-label">Inside folder (optional)</span>
-              <div className="folder-row">
-                <span className="path">{top}/</span>
-                <input list="project-subfolders" value={sub} onChange={(e) => setSub(e.target.value)} placeholder={group === "Venture" ? "e.g. Software" : "leave empty"} />
-              </div>
-              <datalist id="project-subfolders">
-                {subOptions.map((f) => (
-                  <option key={f} value={f} />
-                ))}
-              </datalist>
-            </label>
           )}
         </div>
         <div className="field">
           <span className="field-label">What to include</span>
-          <div className="parts-list">
-            <label className="check">
-              <input type="checkbox" checked disabled />
-              Board: text, documents, videos and photos
-            </label>
-            <label className="check">
+          <div className="parts-columns">
+            <label className="check part-col wide">
               <input type="checkbox" checked={venture} onChange={() => setVenture(!venture)} />
-              The Venture Ideation System (Overview, Market Research, Customer Development, UI/UX, Planning, Marketing,
-              Operations, Funding, Financials and Deck)
+              <span>
+                The Venture Ideation System
+                <ul className="plain muted small">
+                  <li>Overview (lean canvas)</li>
+                  <li>Market Research</li>
+                  <li>Customer Development</li>
+                  <li>UI/UX</li>
+                  <li>Planning</li>
+                  <li>Marketing</li>
+                  <li>Operations</li>
+                  <li>Funding</li>
+                  <li>Financials</li>
+                  <li>Deck</li>
+                </ul>
+              </span>
             </label>
-            <label className="check">
+            <label className="check part-col">
               <input type="checkbox" checked={log} onChange={() => setLog(!log)} />
-              Build log
+              <span>
+                Build log
+                <ul className="plain muted small">
+                  <li>A Documentation page</li>
+                  <li>Newest entry first</li>
+                </ul>
+              </span>
             </label>
           </div>
-          <p className="muted small no-margin">You can add these later from the project's Board.</p>
+          <p className="muted small no-margin note-centered">Note: you can add these later from the project's board.</p>
         </div>
         <div className="modal-actions">
           <button type="button" onClick={close}>
