@@ -12,7 +12,7 @@ import { hasOverview } from "../core/projects";
 const SAVE_DELAY = 700;
 
 /** Section and Documentation pages keep their names; projects rename by moving their whole folder. */
-const fixedName = (i: Item) => i.kind === "section" || i.kind === "docs";
+const fixedName = (i: Item) => i.kind === "section" || i.kind === "docs" || i.kind === "main";
 
 export function ItemView({ itemId, go, embedded = false }: { itemId: string; go: (r: Route) => void; embedded?: boolean }) {
   const store = useStore();
@@ -129,6 +129,8 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
   const isLesson = draft.module === "courses" && (draft.kind === "lesson" || (!draft.kind && !!store.index.courseParent(draft)));
   const shownFields = isProject ? mod.fields : isLesson || draft.kind === "class" ? mod.fields.filter((f) => f.key === "Status") : !draft.kind ? mod.fields : [];
   const owner = store.index.projectFor(draft);
+  // main.md is the project's details file: the project's own settings (name, type, status) sit at its top.
+  const mainOwner = draft.kind === "main" ? owner : undefined;
   const backlinks = store.index.backlinks(draft.id);
   const folders = store.index.subfolders(draft.module);
   const dir = dirName(draft.path);
@@ -264,6 +266,20 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
           )}
           <button onClick={() => store.storage.reveal(isProject ? dir : draft.path)}>Show in Finder</button>
           {!isProject && <button onClick={() => store.storage.open(draft.path)}>Open note file</button>}
+          {mainOwner && (
+            <button
+              className="danger"
+              onClick={async () => {
+                if (!confirm(`Move the whole "${mainOwner.title}" project folder (its pages, modules and sub-projects) to LifeOS's trash? (It's kept in LifeOS/.trash.)`)) return;
+                const parent = store.index.parentProject(mainOwner);
+                await store.deleteProject(store.index.items.get(mainOwner.id) ?? mainOwner);
+                if (parent) go({ view: "item", id: parent.id });
+                else go({ view: "module", id: host.id });
+              }}
+            >
+              Delete project
+            </button>
+          )}
           {!fixedName(draft) && (
             <button
               className="danger"
@@ -287,6 +303,33 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
           )}
         </div>
       </div>
+
+      {mainOwner && (
+        <section className="fields">
+          <label className="field" key={mainOwner.title}>
+            <span className="field-label">Project name</span>
+            <input
+              defaultValue={mainOwner.title}
+              onBlur={async (e) => {
+                const t = e.target.value.trim();
+                const o = store.index.items.get(mainOwner.id) ?? mainOwner;
+                if (t && t !== o.title) await store.moveProject({ ...o, title: t }, t, dirName(o.folder));
+              }}
+            />
+          </label>
+          {mod.fields.map((f) => (
+            <FieldInput
+              key={f.key}
+              def={f}
+              value={mainOwner.fields[f.key]}
+              onChange={(v) => {
+                const o = store.index.items.get(mainOwner.id) ?? mainOwner;
+                store.saveItem({ ...o, fields: { ...o.fields, [f.key]: v } });
+              }}
+            />
+          ))}
+        </section>
+      )}
 
       {shownFields.length > 0 && (
         <section className={`fields ${isCourse ? "info-row" : ""}`}>
@@ -357,7 +400,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
       {(!isProject || hasOverview(draft.body)) && draft.module !== "courses" && (
       <section className="body-section">
         <div className="section-head">
-          <h3>{isLog ? "Notes and build log" : "Notes"}</h3>
+          <h3>{isLog ? "Notes and build log" : draft.kind === "main" ? "Details" : "Notes"}</h3>
           <span className="row-actions">
             {isLog && (
               <button

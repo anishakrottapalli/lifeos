@@ -191,7 +191,7 @@ describe("projects", () => {
       "Market Research", "Customer Development", "UI/UX", "Planning", "Marketing", "Operations", "Funding", "Financials", "Deck",
     ]);
     expect(parts.docs?.title).toBe("Documentation");
-    expect(mem.files.get("Projects/My Business/Software/LifeOS/lifeos.lifeos")?.text).toContain("Lean canvas");
+    expect(mem.files.get("Projects/My Business/Software/LifeOS/main.md")?.text).toContain("Lean canvas"); // the details file
   });
 
   it("module pages live inside the project and don't get Venture sections", async () => {
@@ -275,7 +275,7 @@ describe("older project notes", () => {
     expect(store.index.looseProjectNotes().map((n) => n.title)).toEqual(["Verzuz"]);
     const p = await store.convertToProject(store.index.looseProjectNotes()[0]);
     expect(p.path).toBe("Projects/Personal/Verzuz/verzuz.lifeos");
-    expect(p.body).toContain("My redesign notes");
+    expect(store.index.partsOf(p).main?.body).toContain("My redesign notes");
     expect(store.index.looseProjectNotes()).toHaveLength(0);
     expect(store.index.partsOf(p).sections).toHaveLength(9);
   });
@@ -311,8 +311,9 @@ describe("choosing a project's parts and its Board", () => {
   it("a simple project is just its folder and Board; parts can be added later", async () => {
     const { mem, store } = await fresh();
     const p = await store.createProject("Handwriting Font", "Personal", {}, []);
-    expect([...mem.files.keys()].filter((k) => k.startsWith("Projects/Personal/Handwriting Font/"))).toEqual([
+    expect([...mem.files.keys()].filter((k) => k.startsWith("Projects/Personal/Handwriting Font/")).sort()).toEqual([
       "Projects/Personal/Handwriting Font/handwritingfont.lifeos",
+      "Projects/Personal/Handwriting Font/main.md",
     ]);
     expect(p.body.trim()).toBe("");
     await store.addPart(p, "02 Market Research");
@@ -320,7 +321,7 @@ describe("choosing a project's parts and its Board", () => {
     const parts = store.index.partsOf(store.index.items.get(p.id)!);
     expect(parts.sections.map((s) => s.title)).toEqual(["Market Research"]);
     expect(parts.docs).toBeUndefined();
-    expect(store.index.items.get(p.id)!.body).toContain("## Lean canvas");
+    expect(store.index.partsOf(store.index.items.get(p.id)!).main!.body).toContain("## Lean canvas");
   });
 
   it("only makes the parts that were ticked", async () => {
@@ -329,7 +330,7 @@ describe("choosing a project's parts and its Board", () => {
     const parts = store.index.partsOf(p);
     expect(parts.sections.map((s) => s.title)).toEqual(["Deck"]);
     expect(parts.docs).toBeTruthy();
-    expect(p.body).toContain("## Lean canvas");
+    expect(parts.main?.body).toContain("## Lean canvas");
   });
 
   it("saves Board cards in the project .lifeos file and reads them back", async () => {
@@ -697,14 +698,34 @@ describe("files on a course page", () => {
 
 import { projectPages, cardKey } from "../ui/Board";
 describe("the artboard's pages (tabs in the sidebar, icons on the artboard)", () => {
-  it("lists Overview, then the sections in order, then Documentation", async () => {
+  it("lists Main (main.md), then the sections in order, then Documentation", async () => {
     const { store } = await fresh();
     const p = await store.createProject("Venture", "Personal", {}, ["overview", "02 Market Research", "03 Customer Development", "docs"]);
     const pages = projectPages(store.index, store.index.items.get(p.id)!);
-    expect(pages.map((x) => x.title)).toEqual(["Overview", "Market Research", "Customer Development", "Documentation"]);
-    expect(pages[0].open).toEqual({ view: "item", id: p.id, page: "details" });
+    expect(pages.map((x) => x.title)).toEqual(["Main", "Market Research", "Customer Development", "Documentation"]);
+    const main = store.index.partsOf(store.index.items.get(p.id)!).main!;
+    expect(pages[0].open).toEqual({ view: "item", id: main.id });
+    expect(main.path.endsWith("/main.md")).toBe(true);
+    expect(main.body).toContain("## Lean canvas"); // the Overview now lives in main.md
+    expect(store.index.items.get(p.id)!.body).toBe(""); // and the project note itself holds no details text
     const bare = await store.createProject("Bare", "Personal", {}, []);
-    expect(projectPages(store.index, store.index.items.get(bare.id)!)).toEqual([]);
+    expect(projectPages(store.index, store.index.items.get(bare.id)!).map((x) => x.title)).toEqual(["Main"]);
+  });
+
+  it("an older project gets main.md from its existing details the first time it opens, and nothing is deleted", async () => {
+    const { store } = await fresh();
+    const p = await store.createProject("Old one", "Personal", {}, []);
+    // Pretend it is an older project: details text in the project note, no main.md yet.
+    const main = store.index.partsOf(store.index.items.get(p.id)!).main!;
+    await store.deleteItem(main);
+    await store.saveItem({ ...store.index.items.get(p.id)!, body: "My old details" });
+    expect(store.index.partsOf(store.index.items.get(p.id)!).main).toBeUndefined();
+    await store.ensureMain(store.index.items.get(p.id)!);
+    const made = store.index.partsOf(store.index.items.get(p.id)!).main!;
+    expect(made.body.trim()).toBe("My old details");
+    expect(store.index.items.get(p.id)!.body.trim()).toBe("My old details"); // still there
+    await store.ensureMain(store.index.items.get(p.id)!); // opening again changes nothing
+    expect(store.index.partsOf(store.index.items.get(p.id)!).main!.id).toBe(made.id);
   });
 
   it("gives every kind of card its own key", () => {

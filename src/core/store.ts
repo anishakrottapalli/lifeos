@@ -15,11 +15,14 @@ import {
   ALL_PART_KEYS,
   DOCS_FILE,
   DOCS_KEY,
+  MAIN_FILE,
+  MAIN_TEMPLATE,
   MODULES_FOLDER,
   OVERVIEW_KEY,
   OVERVIEW_TEMPLATE,
   SECTIONS,
   docsTemplate,
+  hasLeanCanvas,
   moduleTemplate,
   type PartKey,
 } from "./projects";
@@ -531,7 +534,7 @@ export class LifeStore {
   }
 
   /** Write the chosen Venture sections / Documentation page, if the project doesn't have them yet. */
-  private async writeParts(project: Item, parts: PartKey[] = ALL_PART_KEYS) {
+  private async writeParts(project: Item, parts: PartKey[] = ALL_PART_KEYS, mainBody?: string) {
     const mod = this.projectsModule();
     const dir = dirName(project.path);
     const rel = dir.slice(mod.folder.length).replace(/^\//, "");
@@ -547,6 +550,42 @@ export class LifeStore {
       const docs = this.blankItem(mod.id, "docs", "Documentation", docsPath, docsTemplate(today()), rel);
       await this.writeNote(docsPath, serializeItem(docs, mod));
     }
+    await this.writeMainNow(project, rel, mainBody);
+  }
+
+  /**
+   * Every project has a details file, `main.md`. If the project has none yet it is made from what the
+   * project already holds (the older Overview text), or from a short template. A plain `main.md` already
+   * in the folder is kept as it is and just marked as the details file. Nothing is deleted.
+   */
+  private async writeMainNow(project: Item, rel: string, mainBody?: string) {
+    const mod = this.projectsModule();
+    const path = join(dirName(project.path), `${MAIN_FILE}.md`);
+    const existing = this.index.byPath.get(path);
+    if (existing) {
+      if (existing.kind !== "main") {
+        const adopted: Item = { ...existing, kind: "main", title: "Main", hasId: true, id: existing.hasId ? existing.id : newId(), updated: nowStamp() };
+        await this.writeNote(path, serializeItem(adopted, mod));
+      }
+      return;
+    }
+    if (this.index.entries.some((e) => e.path === path)) return;
+    const body = mainBody ?? (project.body.trim() ? project.body : MAIN_TEMPLATE);
+    await this.writeNote(path, serializeItem(this.blankItem(mod.id, "main", "Main", path, body, rel), mod));
+  }
+
+  /** Make sure a project has its main.md (older projects get one the first time they open). */
+  async ensureMain(project: Item): Promise<void> {
+    const fresh = this.index.items.get(project.id) ?? project;
+    if (this.index.partsOf(fresh).main) return;
+    return this.run(async () => {
+      const again = this.index.items.get(project.id) ?? fresh;
+      if (this.index.partsOf(again).main) return;
+      const mod = this.projectsModule();
+      const rel = dirName(again.path).slice(mod.folder.length).replace(/^\//, "");
+      await this.writeMainNow(again, rel);
+      await this.rescanNow();
+    });
   }
 
   /**
@@ -565,12 +604,12 @@ export class LifeStore {
       const name = uniqueName(safeName(title), "", (n) => this.dirTaken(join(parentDir, n)));
       const dir = join(parentDir, name);
       const rel = dir.slice(mod.folder.length).replace(/^\//, "");
-      const body = parts.includes(OVERVIEW_KEY) ? OVERVIEW_TEMPLATE : "";
-      const main = this.blankItem(mod.id, "project", title.trim() || name, join(dir, projectFile(name)), body, rel);
+      const mainBody = parts.includes(OVERVIEW_KEY) ? OVERVIEW_TEMPLATE : MAIN_TEMPLATE;
+      const main = this.blankItem(mod.id, "project", title.trim() || name, join(dir, projectFile(name)), "", rel);
       main.fields = { Status: "Idea", ...fields };
       await this.writeNote(main.path, serializeItem(main, mod));
       this.index.entries.push({ path: main.path, mtime: Date.now(), size: 0 });
-      await this.writeParts(main, parts);
+      await this.writeParts(main, parts, mainBody);
       await this.rescanNow();
       return this.index.items.get(main.id) ?? main;
     });
@@ -587,9 +626,11 @@ export class LifeStore {
   async addPart(project: Item, part: PartKey): Promise<void> {
     if (part === OVERVIEW_KEY) {
       const fresh = this.index.items.get(project.id) ?? project;
-      if (fresh.body.includes("## Lean canvas")) return;
-      const body = fresh.body.trim() ? `${fresh.body.trim()}\n\n${OVERVIEW_TEMPLATE}` : OVERVIEW_TEMPLATE;
-      await this.saveItem({ ...fresh, body });
+      // The lean canvas goes into main.md (an older project without one keeps it in its own text).
+      const target = this.index.partsOf(fresh).main ?? fresh;
+      if (hasLeanCanvas(target.body)) return;
+      const body = target.body.trim() ? `${target.body.trim()}\n\n${OVERVIEW_TEMPLATE}` : OVERVIEW_TEMPLATE;
+      await this.saveItem({ ...target, body });
       return;
     }
     return this.run(async () => {
@@ -1055,8 +1096,9 @@ export class LifeStore {
       });
     }
     const project = await this.createProject(note.title, note.folder, note.fields);
-    const body = note.body.trim() ? `${note.body.trim()}\n\n${project.body}` : project.body;
-    const saved = await this.saveItem({ ...project, body, tags: note.tags, links: note.links });
+    const mainNote = this.index.partsOf(project).main;
+    if (mainNote && note.body.trim()) await this.saveItem({ ...mainNote, body: `${note.body.trim()}\n\n${mainNote.body}` });
+    const saved = await this.saveItem({ ...(this.index.items.get(project.id) ?? project), tags: note.tags, links: note.links });
     await this.deleteItem(this.index.byPath.get(note.path) ?? note);
     return this.index.items.get(saved.id) ?? saved;
   }

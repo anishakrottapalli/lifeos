@@ -108,6 +108,7 @@ export class LifeIndex {
     const subprojects: Item[] = [];
     const notes: Item[] = [];
     let docs: Item | undefined;
+    let main: Item | undefined;
     for (const i of this.items.values()) {
       if (i.id === project.id || i.module !== project.module) continue;
       if (i.kind === "project") {
@@ -116,6 +117,7 @@ export class LifeIndex {
       }
       if (this.projectFor(i)?.id !== project.id) continue;
       if (i.kind === "section") sections.push(i);
+      else if (i.kind === "main" && !main) main = i;
       else if (i.kind === "docs" && !docs) docs = i;
       else if (i.kind === "module") modules.push(i);
       else notes.push(i);
@@ -125,7 +127,7 @@ export class LifeIndex {
     modules.sort((a, b) => a.title.localeCompare(b.title));
     subprojects.sort((a, b) => a.title.localeCompare(b.title));
     notes.sort((a, b) => a.title.localeCompare(b.title));
-    return { sections, docs, modules, subprojects, notes };
+    return { sections, docs, main, modules, subprojects, notes };
   }
 
   /** Plain notes in Projects that aren't part of any project (e.g. made before projects had folders). */

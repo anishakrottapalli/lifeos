@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { Item } from "../core/types";
 import { displayValue, timeAgo, useStore, type Route } from "./hooks";
 import { Modal } from "./Modal";
-import { DOCS_KEY, PROJECT_GROUPS, VENTURE_PART_KEYS, type PartKey, type ProjectGroup } from "../core/projects";
+import { DOCS_KEY, PROJECT_GROUPS, type PartKey, type ProjectGroup } from "../core/projects";
 
 export function ProjectsView({ go }: { go: (r: Route) => void }) {
   const store = useStore();
@@ -140,7 +140,6 @@ export function NewProjectModal({
 }) {
   const [title, setTitle] = useState("");
   const [group, setGroup] = useState<ProjectGroup>("Personal");
-  const [venture, setVenture] = useState(false);
   const [log, setLog] = useState(false);
   const top = PROJECT_GROUPS[group];
   const isSub = fixedFolder !== undefined;
@@ -152,7 +151,7 @@ export function NewProjectModal({
         onSubmit={(e) => {
           e.preventDefault();
           if (!title.trim()) return;
-          const parts = [...(venture ? VENTURE_PART_KEYS : []), ...(log ? [DOCS_KEY] : [])];
+          const parts: PartKey[] = log ? [DOCS_KEY] : [];
           const folder = isSub ? fixedFolder : top;
           create(title.trim(), folder, parts, isSub ? {} : { Type: group });
         }}
@@ -181,24 +180,6 @@ export function NewProjectModal({
         <div className="field">
           <span className="field-label">What to include</span>
           <div className="parts-columns">
-            <label className="check part-col wide">
-              <input type="checkbox" checked={venture} onChange={() => setVenture(!venture)} />
-              <span>
-                The Venture Ideation System
-                <ul className="plain muted small">
-                  <li>Overview (lean canvas)</li>
-                  <li>Market Research</li>
-                  <li>Customer Development</li>
-                  <li>UI/UX</li>
-                  <li>Planning</li>
-                  <li>Marketing</li>
-                  <li>Operations</li>
-                  <li>Funding</li>
-                  <li>Financials</li>
-                  <li>Deck</li>
-                </ul>
-              </span>
-            </label>
             <label className="check part-col">
               <input type="checkbox" checked={log} onChange={() => setLog(!log)} />
               <span>
@@ -210,7 +191,7 @@ export function NewProjectModal({
               </span>
             </label>
           </div>
-          <p className="muted small no-margin note-centered">Note: you can add these later from the project's board.</p>
+          <p className="muted small no-margin note-centered">The Venture Ideation System can be added from the project's sidebar once it's created.</p>
         </div>
         <div className="modal-actions">
           <button type="button" onClick={close}>
