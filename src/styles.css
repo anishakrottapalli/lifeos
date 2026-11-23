@@ -14,7 +14,7 @@
   --danger: #b42318;
   --note: #fff8e6;
   --note-line: #f1dfae;
-  --radius: 8px;
+  --radius: 14px;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "Segoe UI", sans-serif;
   font-size: 14px;
   color: var(--text);
@@ -95,18 +95,34 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); }
   gap: 2px;
 }
 .main { flex: 1; overflow-y: auto; }
-.brand { font-weight: 700; font-size: 16px; padding: 4px 8px 12px; cursor: pointer; }
+.brand-row { display: flex; align-items: center; justify-content: space-between; gap: 4px; padding-bottom: 8px; }
+.brand { font-weight: 700; font-size: 16px; padding: 4px 8px; cursor: pointer; white-space: nowrap; }
+.collapse-button { background: none; border: none; color: var(--muted); padding: 4px 8px; border-radius: 10px; font-size: 16px; line-height: 1; }
+.collapse-button:hover { background: var(--hover); color: var(--text); }
+.search-icon { display: none; width: 18px; text-align: center; }
+/* minimized sidebar: icons only */
+.sidebar { transition: width 0.18s ease; }
+.sidebar.collapsed { width: 64px; padding: 14px 8px; }
+.sidebar.collapsed .brand-row { flex-direction: column; gap: 6px; }
+.sidebar.collapsed .brand { padding: 4px; }
+.sidebar.collapsed .side-text,
+.sidebar.collapsed .nav-label { display: none; }
+.sidebar.collapsed .search-icon { display: inline; }
+.sidebar.collapsed .search-button { justify-content: center; padding: 6px 0; }
+.sidebar.collapsed .nav-item { justify-content: center; padding: 6px 0; }
+.sidebar.collapsed .nav-icon { width: auto; }
+@media (prefers-reduced-motion: reduce) { .sidebar { transition: none; } }
 .brand-mark { color: #d4a514; }
 .search-button {
   display: flex; align-items: center; justify-content: space-between;
   color: var(--muted); margin-bottom: 8px; background: var(--card);
 }
-kbd { font-size: 11px; border: 1px solid var(--line-strong); border-radius: 4px; padding: 0 4px; }
+kbd { font-size: 11px; border: 1px solid var(--line-strong); border-radius: 6px; padding: 0 5px; }
 .nav-group { margin-top: 12px; }
 .nav-group-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding: 4px 8px; }
 .nav-item {
   display: flex; align-items: center; gap: 8px; width: 100%;
-  background: none; border: none; padding: 5px 8px; text-align: left; border-radius: 6px;
+  background: none; border: none; padding: 5px 8px; text-align: left; border-radius: 12px;
 }
 .nav-item.active { background: var(--hover); font-weight: 600; }
 .nav-icon { width: 18px; text-align: center; }
@@ -196,14 +212,14 @@ section { margin-bottom: 22px; }
 /* ---------- modals ---------- */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(20, 18, 15, 0.35); display: flex; align-items: center; justify-content: center; z-index: 10; }
 .modal-backdrop.top { align-items: flex-start; padding-top: 12vh; }
-.modal { background: var(--bg); border-radius: 12px; padding: 22px; width: min(680px, 92vw); max-height: 84vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25); }
+.modal { background: var(--bg); border-radius: 22px; padding: 22px; width: min(680px, 92vw); max-height: 84vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25); }
 .modal h2 { margin-top: 0; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 .field-rows { display: flex; flex-direction: column; gap: 8px; margin: 14px 0; }
 .field-row { display: flex; gap: 8px; align-items: center; }
 .field-row > input:first-child { width: 170px; }
 .picker { max-height: 46vh; overflow-y: auto; }
-.palette { background: var(--bg); border-radius: 12px; width: min(620px, 92vw); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); overflow: hidden; }
+.palette { background: var(--bg); border-radius: 22px; width: min(620px, 92vw); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); overflow: hidden; }
 .palette > input { width: 100%; border: none; border-bottom: 1px solid var(--line); border-radius: 0; padding: 14px 16px; font-size: 16px; background: var(--bg); }
 .palette .list { border: none; border-radius: 0; max-height: 50vh; overflow-y: auto; }
 
@@ -300,7 +316,7 @@ ul.plain { margin: 6px 0 0; padding-left: 18px; line-height: 1.7; }
 .journal-rec .journal-img { width: 120px; }
 .md-video { display: block; max-width: 100%; border-radius: var(--radius); margin: 10px 0; }
 .journal-preview { margin-top: 2px; }
-.bicon { position: absolute; width: 96px; padding: 6px 4px 8px; text-align: center; border-radius: 8px; border: 2px solid transparent; -webkit-user-select: none; user-select: none; cursor: default; }
+.bicon { position: absolute; width: 96px; padding: 6px 4px 8px; text-align: center; border-radius: 14px; border: 2px solid transparent; -webkit-user-select: none; user-select: none; cursor: default; }
 .bicon:hover { background: var(--hover); }
 .bicon.selected { border-color: var(--accent); background: var(--hover); }
 .bicon-img { font-size: 40px; line-height: 1.15; }
