@@ -153,6 +153,20 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
   const providerName = isCourse ? displayValue(draft.fields["Provider"]).trim() : "";
   const showCertificate = isCourse && !draft.kind && store.index.isTopLevelCourse(draft);
 
+  // A lesson's files: every PDF counts as a class ("Class 2 of 5"). Files left inside old class folders still show here.
+  const lessonRows: { name: string; dir: string; attached: boolean }[] = [];
+  if (isLesson) {
+    for (const f of attached) lessonRows.push({ name: f, dir, attached: true });
+    for (const f of inFolder) lessonRows.push({ name: f, dir, attached: false });
+    for (const k of courseKids.filter((k) => k.kind === "class")) {
+      const cf = store.index.courseFiles(k);
+      for (const f of [...cf.attached, ...cf.inFolder]) lessonRows.push({ name: f, dir: dirName(k.path), attached: false });
+    }
+  }
+  const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, undefined, { numeric: true });
+  const lessonClasses = lessonRows.filter((r) => /\.pdf$/i.test(r.name)).sort(byName);
+  const lessonOthers = lessonRows.filter((r) => !/\.pdf$/i.test(r.name)).sort(byName);
+
   async function addCourseFilesNow(paths: string[]) {
     if (!paths.length) return;
     if (dirtyRef.current) await persist(latest.current!, false);
@@ -406,7 +420,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
           </button>
           </span>
         </div>
-        {attached.length === 0 && inFolder.length === 0 ? (
+        {(isLesson ? lessonRows.length === 0 : attached.length === 0 && inFolder.length === 0) ? (
           isCourse ? (
             <div className="drop-zone">
               <span className="drop-zone-icon">
@@ -415,12 +429,46 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
                 </svg>
               </span>
               <strong>Drag files here</strong>
-              <span className="muted small">Notes, worksheets, anything for this {draft.kind === "class" ? "class" : isLesson ? "lesson" : "course"}.</span>
+              <span className="muted small">{isLesson ? "Drop the lesson's PDFs here. Each PDF is a class." : `Notes, worksheets, anything for this ${draft.kind === "class" ? "class" : "course"}.`}</span>
             </div>
           ) : (
             <p className="muted small">No files. Added files are moved (not copied) into this item's folder.</p>
           )
         ) : (
+          isLesson ? (
+          <ul className="list">
+            {lessonClasses.map((r, i) => (
+              <li key={r.dir + r.name} className="row">
+                <span className="part-label muted small">Class {i + 1} of {lessonClasses.length}</span>
+                <span className="row-title">{r.name.replace(/\.pdf$/i, "")}</span>
+                <span className="right row-actions">
+                  <button onClick={() => store.storage.open(join(r.dir, r.name))}>Open</button>
+                  <button onClick={() => store.storage.reveal(join(r.dir, r.name))}>Show</button>
+                  {r.attached && (
+                    <button title="Detach (the file stays in the folder)" onClick={async () => setDraft(await store.removeFile(latest.current!, r.name))}>
+                      Detach
+                    </button>
+                  )}
+                </span>
+              </li>
+            ))}
+            {lessonOthers.map((r) => (
+              <li key={r.dir + r.name} className="row">
+                <span className="part-label muted small">File</span>
+                <span className="row-title">{r.name}</span>
+                <span className="right row-actions">
+                  <button onClick={() => store.storage.open(join(r.dir, r.name))}>Open</button>
+                  <button onClick={() => store.storage.reveal(join(r.dir, r.name))}>Show</button>
+                  {r.attached && (
+                    <button title="Detach (the file stays in the folder)" onClick={async () => setDraft(await store.removeFile(latest.current!, r.name))}>
+                      Detach
+                    </button>
+                  )}
+                </span>
+              </li>
+            ))}
+          </ul>
+          ) : (
           <ul className="list">
             {attached.map((f) => (
               <li key={f} className="row">
@@ -449,6 +497,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
               </li>
             ))}
           </ul>
+          )
         )}
       </section>
       )}
