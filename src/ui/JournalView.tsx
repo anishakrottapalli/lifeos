@@ -65,7 +65,7 @@ export function JournalList({ go }: { go: (r: Route) => void }) {
           <div className="actions">
             <button onClick={() => store.storage.mkdir("Journal").then(() => store.storage.reveal("Journal"))}>Show in Finder</button>
             <button className="primary" onClick={() => setAdding(true)}>
-              + New day
+              New day
             </button>
           </div>
         </div>

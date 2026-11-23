@@ -4,13 +4,11 @@ import { Icon } from "./icons";
 export function Sidebar({
   route,
   go,
-  openSearch,
   collapsed,
   toggle,
 }: {
   route: Route;
   go: (r: Route) => void;
-  openSearch: () => void;
   collapsed: boolean;
   toggle: () => void;
 }) {
@@ -24,18 +22,13 @@ export function Sidebar({
     <nav className={`sidebar ${collapsed ? "collapsed" : ""}`}>
       <div className="brand-row">
         <div className="brand" onClick={() => go({ view: "home" })} title="Home">
-          <span className="brand-mark">◆</span>
-          <span className="side-text"> LifeOS</span>
+          <span className="side-text">LifeOS</span>
+          <span className="brand-short">L</span>
         </div>
         <button className="collapse-button" onClick={toggle} aria-label={collapsed ? "Expand sidebar" : "Minimize sidebar"} title={collapsed ? "Expand sidebar" : "Minimize sidebar"}>
           {collapsed ? "»" : "«"}
         </button>
       </div>
-      <button className="search-button" onClick={openSearch} title="Search">
-        <span className="search-icon"><Icon id="search" size={18} /></span>
-        <span className="side-text grow">Search</span>
-        <kbd className="side-text">⌘K</kbd>
-      </button>
       <button className={`nav-item ${route.view === "home" ? "active" : ""}`} onClick={() => go({ view: "home" })} title="Home">
           <span className="nav-icon"><Icon id="home" /></span> <span className="nav-label">Home</span>
       </button>
@@ -52,7 +45,6 @@ export function Sidebar({
             <span className="nav-label">{m.name}</span>
             {m.storage === "anywhere" && <span className="badge side-text" title="Anywhere group: syncs">☁</span>}
             {m.locked && <span className="badge side-text" title="Locked: private">🔒</span>}
-            <span className="count side-text">{store.index.countFor(m.id) || ""}</span>
           </button>
         ))}
       <div className="sidebar-foot">

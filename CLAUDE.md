@@ -41,7 +41,7 @@ Levels: **Program (folder) → Course → Lesson → Class**. Only a **class** h
 
 ## Look and feel
 
-Dark violet / light lavender, following the Mac (`src/styles.css` variables; `--main-bg` is the glow behind the pages). The sidebar is flush with line icons (`src/ui/icons.tsx`, emoji is only a fallback), a bold wordmark, and can be minimized to icons (« / », Cmd+\, remembered in `localStorage`; search stays as an icon). Corners are rounded everywhere (`--radius`). Page titles are big capitals (`.page-title-row h1`). Home shows the weekday and date above what it had.
+Dark violet / light lavender, following the Mac (`src/styles.css` variables; `--main-bg` is the glow behind the pages). The sidebar is flush with line icons (`src/ui/icons.tsx`, emoji is only a fallback), a bold wordmark (no counts), and can be minimized to icons (« / », Cmd+\, remembered in `localStorage`). Search is a rounded **Find ⌘K** pill at the top right of every page (`.topbar` in `App.tsx`), not in the sidebar. Page lists (Journal days, Projects) are flat hairline rows, and the page header buttons are 44px pills. Corners are rounded everywhere (`--radius`). Page titles are big capitals (`.page-title-row h1`). Home shows the weekday and date above what it had.
 
 ## Older Mac
 
