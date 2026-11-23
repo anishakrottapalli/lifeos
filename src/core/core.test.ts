@@ -382,6 +382,28 @@ describe("choosing a project's parts and its Board", () => {
   });
 });
 
+describe("Board: sections, link cards and arrows", () => {
+  it("are saved in the project file and read back; removing a card takes its arrows with it", async () => {
+    const { store } = await fresh();
+    const p = await store.createProject("Font", "", {}, []);
+    const board = [
+      { id: "s1", type: "section" as const, text: "Concept", x: 10, y: 20, w: 400, h: 260 },
+      { id: "t1", type: "text" as const, text: "Idea", x: 30, y: 60, w: 240 },
+      { id: "e1", type: "embed" as const, embed: "artifact" as const, url: "https://claude.ai/artifact/abc", text: "Design", x: 500, y: 60, w: 260 },
+      { id: "a1", type: "arrow" as const, from: "t1", to: "e1", x: 0, y: 0 },
+    ];
+    await store.saveBoard(p, board);
+    await store.rescan();
+    const back = store.index.items.get(p.id)!.board!;
+    expect(back.map((c) => c.type)).toEqual(["section", "text", "embed", "arrow"]);
+    expect(back[0]).toMatchObject({ text: "Concept", w: 400, h: 260 });
+    expect(back[2]).toMatchObject({ embed: "artifact", url: "https://claude.ai/artifact/abc", text: "Design" });
+    expect(back[3]).toMatchObject({ from: "t1", to: "e1" });
+    const after = await store.removeBoardCard(store.index.items.get(p.id)!, back[1]);
+    expect(after.board?.map((c) => c.id)).toEqual(["s1", "e1"]);
+  });
+});
+
 describe("older projects", () => {
   it("move to one .lifeos file, taking the Board from projectboard.lifeos", async () => {
     const { mem, store } = await fresh();

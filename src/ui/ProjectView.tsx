@@ -43,7 +43,7 @@ export function ProjectView({
     if (!onBoard) go({ view: "item", id: project.id });
     setTimeout(() => window.dispatchEvent(new CustomEvent("board-select", { detail: key })), onBoard ? 0 : 200);
   }
-  const textCards = (project.board ?? []).filter((c) => c.type === "text");
+  const textCards = (project.board ?? []).filter((c) => c.type === "text" || c.type === "embed" || c.type === "section");
 
   const navItem = (i: Item, label: string) => (
     <button key={i.id} className={`nav-item ${selectedId === i.id ? "active" : ""}`} onClick={() => go({ view: "item", id: i.id })}>
@@ -106,7 +106,9 @@ export function ProjectView({
             ))}
             {textCards.map((c) => (
               <button key={"t:" + c.id} className="nav-item" onClick={() => showOnBoard("t:" + c.id)} title="Show on the artboard">
-                <span className="nav-label">📝 {(c.text ?? "").trim().split("\n")[0].slice(0, 40) || "Text"}</span>
+                <span className="nav-label">
+                  {c.type === "embed" ? "🔗" : c.type === "section" ? "▭" : "📝"} {(c.text ?? "").trim().split("\n")[0].slice(0, 40) || (c.type === "section" ? "Section" : "Text")}
+                </span>
               </button>
             ))}
           </>

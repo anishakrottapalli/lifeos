@@ -50,8 +50,12 @@ export interface Link {
 /** One thing on a project's Board. Saved in the project file's `board:` list. */
 export interface BoardCard {
   id: string;
-  /** text: a note card · file: a picture, video or other file in the project folder · page: a section/page of the project */
-  type: "text" | "file" | "page";
+  /**
+   * text: a note card · file: a picture, video or other file in the project folder · page: a section/page of the project ·
+   * section: a labelled area that groups cards (its label is `text`) · embed: a link card (a Claude artifact or chat, or any web link) ·
+   * arrow: a line from the card `from` to the card `to`
+   */
+  type: "text" | "file" | "page" | "section" | "embed" | "arrow";
   x: number;
   y: number;
   /** Width in px (height grows with the content). */
@@ -61,6 +65,14 @@ export interface BoardCard {
   file?: string;
   /** For page cards: the page's id, or "overview" for the project's own Overview. */
   page?: string;
+  /** Height in px, for sections (other cards grow with their content). */
+  h?: number;
+  /** For embed cards: the web address, and what it is (its title is `text`). */
+  url?: string;
+  embed?: "artifact" | "chat" | "link";
+  /** For arrows: the ids of the cards it joins. */
+  from?: string;
+  to?: string;
 }
 
 export interface Item {
