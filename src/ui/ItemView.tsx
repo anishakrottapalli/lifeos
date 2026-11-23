@@ -89,6 +89,8 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
     );
   }
   const mod = store.module(draft.module)!;
+  // The app this note is shown in (a quote shows up in Wisdom Drops).
+  const host = store.module(store.index.hostId(draft.module)) ?? mod;
 
   async function persist(item: Item, rename: boolean) {
     clearTimeout(timer.current);
@@ -143,8 +145,8 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
       <div className="crumbs">
         {!embedded && (
           <>
-            <button className="link" onClick={() => go({ view: "module", id: mod.id })}>
-              {mod.icon} {mod.name}
+            <button className="link" onClick={() => go({ view: "module", id: host.id })}>
+              {host.icon} {host.name}
             </button>
             {draft.folder && <span className="muted"> / {draft.folder}</span>}
           </>
@@ -222,7 +224,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
                 if (isProject) await store.deleteProject(draft);
                 else await store.deleteItem(draft);
                 if (parent && parent.id !== draft.id) go({ view: "item", id: parent.id });
-                else go({ view: "module", id: mod.id });
+                else go({ view: "module", id: host.id });
               }}
             >
               Delete
@@ -388,7 +390,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
           <ul className="list">
             {draft.links.map((l, i) => {
               const target = store.index.items.get(l.to);
-              const tm = target && store.module(target.module);
+              const tm = target && store.module(store.index.hostId(target.module));
               return (
                 <li key={i} className="row">
                   <span className="pill">{l.kind}</span>
@@ -419,7 +421,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
         ) : (
           <ul className="list">
             {backlinks.map((b) => {
-              const bm = store.module(b.item.module);
+              const bm = store.module(store.index.hostId(b.item.module));
               return (
                 <li key={b.item.id + b.kind} className="row" onClick={() => go({ view: "item", id: b.item.id })}>
                   <span className="pill">{b.kind}</span>

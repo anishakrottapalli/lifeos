@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { displayValue, useStore, type Route } from "./hooks";
 import { FieldEditor } from "./FieldEditor";
 import { Modal } from "./Modal";
-import { fileName } from "../core/paths";
+import { dirName, fileName } from "../core/paths";
 
 export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) => void }) {
   const store = useStore();
@@ -13,7 +13,8 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
   const [editingFields, setEditingFields] = useState(false);
 
   // In Courses, the courses inside a program are listed on the program's page, not here.
-  const all = store.index.inModule(moduleId).filter((i) => store.index.isTopLevelCourse(i) || moduleId !== "courses");
+  // (An app also shows the notes of the apps folded into it: Wisdom Drops holds Quotes & Tweets.)
+  const all = store.index.inApp(moduleId).filter((i) => store.index.isTopLevelCourse(i) || moduleId !== "courses");
   const tags = useMemo(() => [...new Set(all.flatMap((i) => i.tags))].sort(), [all]);
   const folders = store.index.subfolders(moduleId);
   const loose = store.index.unfiled(moduleId);
@@ -21,8 +22,10 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
 
   if (!mod) return <div className="page">Unknown app.</div>;
 
+  // The folder a note is in, counted from the app's own folder (so a folded app's notes line up too).
+  const folderOf = (i: { path: string }) => dirName(i.path).slice(mod.folder.length + 1);
   const shown = (filter ? store.index.search(filter, moduleId) : all).filter(
-    (i) => (!tag || i.tags.includes(tag)) && (!folder || i.folder === folder || i.folder.startsWith(folder + "/")),
+    (i) => (!tag || i.tags.includes(tag)) && (!folder || folderOf(i) === folder || folderOf(i).startsWith(folder + "/")),
   );
   const columns = mod.fields.slice(0, 3);
   // In Courses, a program (a folder of courses) is a row too.
@@ -43,7 +46,12 @@ export function ModuleView({ moduleId, go }: { moduleId: string; go: (r: Route) 
   }
 
   async function add() {
-    const item = await store.createItem(moduleId, "Untitled", folder);
+    // Adding from inside a folded app's folder (SOPs, Home Inventory…) makes a note of that app.
+    const first = folder.split("/")[0];
+    const folded = first ? store.modules.find((m) => m.foldedInto === moduleId && m.folder === `${mod!.folder}/${first}`) : undefined;
+    const item = folded
+      ? await store.createItem(folded.id, "Untitled", folder.slice(first.length + 1))
+      : await store.createItem(moduleId, "Untitled", folder);
     go({ view: "item", id: item.id });
   }
 

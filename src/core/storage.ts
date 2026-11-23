@@ -17,6 +17,8 @@ export interface Storage {
   /** Rename or move a whole folder. */
   renameDir(from: string, to: string): Promise<void>;
   exists(path: string): Promise<boolean>;
+  /** Remove a folder only if it is completely empty. True if it was removed, false if it has something in it or isn't there. */
+  removeEmptyDir(path: string): Promise<boolean>;
   mkdir(path: string): Promise<void>;
   /** Move a file from anywhere on the Mac into the LifeOS folder. */
   importFile(fromAbs: string, to: string): Promise<void>;

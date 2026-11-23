@@ -17,6 +17,24 @@ export function App() {
   const [route, setRoute] = useState<Route>({ view: "home" });
   const [searchOpen, setSearchOpen] = useState(false);
   const go = useCallback((r: Route) => setRoute(r), []);
+  // Minimized sidebar (icons only). Remembered between openings; works without storage too.
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem("lifeos-sidebar-collapsed") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggleSidebar = useCallback(() => {
+    setCollapsed((c) => {
+      try {
+        localStorage.setItem("lifeos-sidebar-collapsed", c ? "0" : "1");
+      } catch {
+        /* not remembered, still works */
+      }
+      return !c;
+    });
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -24,11 +42,15 @@ export function App() {
         e.preventDefault();
         setSearchOpen((o) => !o);
       }
+      if ((e.metaKey || e.ctrlKey) && e.key === "\\") {
+        e.preventDefault();
+        toggleSidebar();
+      }
       if (e.key === "Escape") setSearchOpen(false);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [toggleSidebar]);
 
   // Anything inside a project (its Overview, sections, module pages) opens in the project layout.
   function renderItem(id: string, details: boolean) {
@@ -53,7 +75,7 @@ export function App() {
 
   return (
     <div className="app">
-      <Sidebar route={route} go={go} openSearch={() => setSearchOpen(true)} />
+      <Sidebar route={route} go={go} openSearch={() => setSearchOpen(true)} collapsed={collapsed} toggle={toggleSidebar} />
       <main className="main">
         {store.storage.kind === "memory" && (
           <div className="preview-banner">Preview mode: sample data in memory. In the Mac app, this is your real LifeOS folder.</div>

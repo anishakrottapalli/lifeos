@@ -23,8 +23,12 @@ export interface ModuleDef {
   icon: string;
   /** Folder inside LifeOS/, e.g. "Health/Medical". */
   folder: string;
-  /** Sidebar section. */
-  group: string;
+  /** Folded into another app: defined, but no sidebar entry; its notes show in that app. */
+  hidden?: boolean;
+  /** The id of the app this one is folded into (see `hidden`). */
+  foldedInto?: string;
+  /** Sections of an app made of several parts (Organization): each is a folder inside the app's folder. */
+  sections?: string[];
   description: string;
   fields: FieldDef[];
   /** Put the date in front of new file names. */

@@ -35,21 +35,26 @@ The first time you open it, macOS may say it's from an unidentified developer. R
 
 ```
 Documents/LifeOS/
-├── Career/Job Tracker/
-├── Content/Saved/ · Content/Creator Studio/
-├── Family/
-├── Finance/
-├── Health/Medical/          ← e.g. Blood Tests/2026-03 Blood Test.md + .pdf
-├── Home/Inventory/
-├── Journal/
-├── Knowledge/Quotes & Tweets/ · Wisdom Drops/ · Courses/ · SOPs/
-├── Library/
-├── Life/Plan/ · Life/To-Do & Routines/
-├── Photos & Videos/
+├── Life/                    ← goals, bucket list, favorites
+├── To-Do & Routines/
 ├── Projects/                ← My Business/Software/…, Personal/…
+├── Journal/
+├── Job Tracker/
+├── Library/
+├── Courses/
+├── Saved Content/
+├── Creator Studio/
+├── Wisdom Drops/            ← every quote, tweet and insight
+│   └── Quotes & Tweets/     ← (older quotes live here)
 ├── Recipes/
 ├── Wardrobe/
+├── Health/Medical/          ← medical records, skin and hair, e.g. Blood Tests/2026-03 Blood Test.md + .pdf
+├── Organization/            ← Backups, AI Settings, Tech Stack, SOPs, Bookmarks, Home Inventory
+├── Finance/
+├── Family/
+├── Photos & Videos/
 ├── .lifeos/modules.json     ← (hidden) your field changes
+├── .lifeos/folder-moves.log ← (hidden) what moved when the folders were reorganized
 └── .trash/                  ← (hidden) deleted items, recoverable
 ```
 
@@ -57,6 +62,7 @@ Documents/LifeOS/
 - **Attached files sit next to their note** and are **moved, not copied**, in, so there's only ever one copy.
 - **Finder works too.** Add, rename or move files in Finder and LifeOS picks up the change. Files dropped into an app's folder show up under "Loose files", where one click turns them into an item.
 - **Links** between items (in any app) are saved inside the note files, so they survive without the app. Every item shows what links to it under "Linked from".
+- **Reorganizing:** older folders (Knowledge, Content, Career, Home…) are moved whole to their new places the first time LifeOS opens, only if the new folder doesn't exist yet. Nothing is copied or deleted, and `.lifeos/folder-moves.log` lists what moved. An old category folder is removed only if it ends up completely empty.
 - **Deleting** moves things into the hidden `.trash` folder (press ⌘⇧. in Finder to see hidden folders).
 
 ## Projects
@@ -70,7 +76,7 @@ When you make a project, say whether it's **Personal** (saved in `Projects/Perso
 
 ## What's in this first version
 
-- All 19 apps, each with its own folder and fields
+- 17 apps in one flat sidebar, each with its own folder and fields (Quotes & Tweets, SOPs and Home Inventory are folded into Wisdom Drops and Organization)
 - Create, edit, rename and delete items; changes save automatically
 - Fields per app, plus **Fields** to add, remove or reorder them
 - Sub-folders (e.g. `My Business/Software`, `Blood Tests`)
@@ -88,6 +94,6 @@ Not yet: importing from Notion, the AI Ask boxes, each app's special screens (th
   - `notes.ts`: reading and writing note files
   - `index.ts`: the in-memory index, rebuilt from the folder
   - `store.ts`: every action
-  - `modules.ts`: the 19 apps
+  - `modules.ts`: the apps (the sidebar order, and which are folded into another)
 - `src/ui/` holds the React screens.
 - `npm test` runs the core tests. `npm run dev` opens a browser preview with sample data (no real files). `cd src-tauri && cargo test` tests the Rust helper.
