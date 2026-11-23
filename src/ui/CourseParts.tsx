@@ -11,6 +11,15 @@ function countLabel(n: number, one: string, many: string) {
   return n ? `${n} ${n === 1 ? one : many}` : "";
 }
 
+/** Each PDF in a lesson counts as a class (including any left inside old class folders). */
+function classCount(store: ReturnType<typeof useStore>, lesson: Item): number {
+  const pdfs = (it: Item) => {
+    const f = store.index.courseFiles(it);
+    return [...f.attached, ...f.inFolder].filter((n) => /\.pdf$/i.test(n)).length;
+  };
+  return pdfs(lesson) + store.index.courseParts(lesson).filter((c) => c.kind === "class").reduce((n, c) => n + pdfs(c), 0);
+}
+
 export function CourseParts({ course, go, beforeChange }: { course: Item; go: (r: Route) => void; beforeChange: () => Promise<void> }) {
   const store = useStore();
   const kids = store.index.courseParts(course);
@@ -34,8 +43,8 @@ export function CourseParts({ course, go, beforeChange }: { course: Item; go: (r
     go({ view: "item", id: made.id });
   }
 
-  // A lesson holds the files itself. Classes only show up for lessons that already have some.
-  if (isLesson && lessons.length === 0) return null;
+  // Classes are gone: a lesson holds its files itself, and each PDF in it counts as a class.
+  if (isLesson) return null;
   return (
     <>
       <section>
@@ -58,7 +67,7 @@ export function CourseParts({ course, go, beforeChange }: { course: Item; go: (r
               <li key={p.id} className="row" onClick={() => go({ view: "item", id: p.id })}>
                 <span className="row-title">{p.title}</span>
                 <span className="muted small">{store.index.partLabel(p)}</span>
-                <span className="muted small">{isLesson ? "" : countLabel(store.index.courseParts(p).filter((c) => c.kind === "class").length, "class", "classes")}</span>
+                <span className="muted small">{countLabel(classCount(store, p), "class", "classes")}</span>
               </li>
             ))}
           </ul>
