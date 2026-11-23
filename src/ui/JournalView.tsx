@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Item } from "../core/types";
 import { dirName, fileName, join } from "../core/paths";
-import { kindOf, mediaLine, type MediaKind } from "../core/journal";
+import { kindOf, mediaLine } from "../core/journal";
 import { inTauri } from "../core/storage";
 import { today } from "../core/paths";
 import { useStore, type Route } from "./hooks";
@@ -15,18 +15,9 @@ const PASTE_EXT: Record<string, string> = { "image/png": ".png", "image/jpeg": "
 const DAY_PATH = /^Journal\/[^/.][^/]*\/[^/]+\.md$/;
 const IS_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** The first line of writing, for the list (skips headings marks and picture/video/audio lines). */
-function firstLine(body: string): string {
-  for (const raw of body.split("\n")) {
-    const l = raw.replace(/^#+\s*|^[-*]\s*|\*\*/g, "").trim();
-    if (l && !/^!\[[^\]]*\]\([^)]*\)$/.test(l)) return l.length > 90 ? l.slice(0, 87) + "…" : l;
-  }
-  return "";
-}
-
 function niceDate(date: string): string {
   const d = new Date(date + "T12:00:00");
-  return isNaN(d.getTime()) ? date : d.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  return isNaN(d.getTime()) ? date : d.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 }
 
 /** Everything in a day's folder except its text page. */
@@ -38,26 +29,11 @@ function contentOf(store: ReturnType<typeof useStore>, day: Item) {
     .sort((a, b) => a.localeCompare(b));
 }
 
-/** Names of the files a text already shows. */
-function placedNames(text: string): Set<string> {
-  const out = new Set<string>();
-  for (const m of text.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)) {
-    try {
-      out.add(decodeURIComponent(m[1]));
-    } catch {
-      out.add(m[1]);
-    }
-  }
-  return out;
-}
-
 export function JournalList({ go }: { go: (r: Route) => void }) {
   const store = useStore();
   const [adding, setAdding] = useState(false);
   const [date, setDate] = useState(today());
   const [error, setError] = useState("");
-  const [result, setResult] = useState<{ imported: number; problems: string[] } | null>(null);
-  const [importing, setImporting] = useState(false);
   const days = useMemo(
     () =>
       store.index
@@ -79,18 +55,6 @@ export function JournalList({ go }: { go: (r: Route) => void }) {
     }
   }
 
-  async function importNotes() {
-    const picked = await store.storage.pickFiles();
-    if (!picked.length) return;
-    setImporting(true);
-    try {
-      setResult(await store.importNoteFiles(picked));
-    } catch (e) {
-      setResult({ imported: 0, problems: [`Something went wrong: ${e}`] });
-    }
-    setImporting(false);
-  }
-
   return (
     <div className="page">
       <header className="page-head">
@@ -99,13 +63,6 @@ export function JournalList({ go }: { go: (r: Route) => void }) {
             <span className="title-icon">📓</span> Journal
           </h1>
           <div className="actions">
-            <button
-              onClick={importNotes}
-              disabled={importing}
-              title="Bring in Notability entries (.note files). The date comes from each note's title."
-            >
-              {importing ? "Importing…" : "Import from Notability"}
-            </button>
             <button onClick={() => store.storage.mkdir("Journal").then(() => store.storage.reveal("Journal"))}>Show in Finder</button>
             <button className="primary" onClick={() => setAdding(true)}>
               + New day
@@ -122,53 +79,22 @@ export function JournalList({ go }: { go: (r: Route) => void }) {
           </button>
         </div>
       ) : (
-        <ul className="list">
+        <ul className="list day-list">
           {days.map((d) => {
-            const content = contentOf(store, d);
-            const pics = content.filter((n) => kindOf(n) === "image").length;
-            const vids = content.filter((n) => kindOf(n) === "video").length;
-            const recs = content.filter((n) => kindOf(n) === "audio").length;
-            const bits = [
-              pics ? `${pics} picture${pics === 1 ? "" : "s"}` : "",
-              vids ? `${vids} video${vids === 1 ? "" : "s"}` : "",
-              recs ? `${recs} recording${recs === 1 ? "" : "s"}` : "",
-            ].filter(Boolean);
+            const hasFiles = contentOf(store, d).length > 0;
             return (
               <li key={d.id} className="row" onClick={() => go({ view: "item", id: d.id })}>
-                <span className="row-icon">📓</span>
-                <span className="row-title">
-                  <span className="strong">{d.title}</span> {IS_DATE.test(d.title) && <span className="muted small">{niceDate(d.title)}</span>}
-                  {firstLine(d.body) && <div className="muted small journal-preview">{firstLine(d.body)}</div>}
-                </span>
-                <span className="muted small">{bits.join(" · ")}</span>
+                <span className="row-title strong">{IS_DATE.test(d.title) ? niceDate(d.title) : d.title}</span>
+                {hasFiles && (
+                  <svg className="clip" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" role="img" aria-label="Has attachments">
+                    <path d="M20 11.5l-7.8 7.8a5 5 0 01-7.1-7.1l8.5-8.5a3.4 3.4 0 014.8 4.8l-8.5 8.5a1.7 1.7 0 01-2.4-2.4l7.8-7.8" />
+                  </svg>
+                )}
+                <span className="muted">›</span>
               </li>
             );
           })}
         </ul>
-      )}
-
-      {result && (
-        <Modal close={() => setResult(null)}>
-          <h2>Import finished</h2>
-          <p>
-            {result.imported} entr{result.imported === 1 ? "y" : "ies"} added to the Journal.
-          </p>
-          {result.problems.length > 0 && (
-            <>
-              <p className="muted small">These need a look:</p>
-              <ul className="plain">
-                {result.problems.map((n) => (
-                  <li key={n}>{n}</li>
-                ))}
-              </ul>
-            </>
-          )}
-          <div className="modal-actions">
-            <button className="primary" onClick={() => setResult(null)}>
-              OK
-            </button>
-          </div>
-        </Modal>
       )}
 
       {adding && (
@@ -209,7 +135,8 @@ export function JournalDay({ itemId, go }: { itemId: string; go: (r: Route) => v
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const textRef = useRef(text);
   textRef.current = text;
-  const [editing, setEditing] = useState(() => !(day?.body ?? "").trim());
+  // The writing is always editable: just type. Pictures, videos and audio go in at the cursor with the Insert buttons.
+  const editing = true;
   const areaRef = useRef<HTMLTextAreaElement>(null);
   const [urls, setUrls] = useState<Record<string, string>>({});
 
@@ -322,28 +249,17 @@ export function JournalDay({ itemId, go }: { itemId: string; go: (r: Route) => v
     );
   }
   const dir = dirName(day.path);
-  const content = contentOf(store, day);
-  const placed = placedNames(text);
-  const unplaced = content.filter((n) => !placed.has(n));
-
-  async function remove(name: string) {
-    if (!window.confirm(`Move "${name}" to the LifeOS trash? (You can get it back from the hidden .trash folder.)`)) return;
-    await store.removeJournalFile(day!, name);
-  }
-
   return (
     <div className={`page item-page ${dropping ? "dropping" : ""}`}>
       <div className="crumbs">
         <button className="link" onClick={() => go({ view: "module", id: "journal" })}>
-          📓 Journal
+          Journal
         </button>
         <span className="status muted small">{status}</span>
       </div>
-      <h1>{day.title}</h1>
-      {IS_DATE.test(day.title) && <p className="muted">{niceDate(day.title)}</p>}
+      <h1 className="day-title">{IS_DATE.test(day.title) ? niceDate(day.title) : day.title}</h1>
 
       <div className="actions">
-        <button onClick={async () => add(await store.storage.pickFiles())}>+ Add pictures, videos & audio</button>
         <button onClick={() => store.storage.reveal(dir)}>Show in Finder</button>
         <button
           className="danger"
@@ -360,14 +276,14 @@ export function JournalDay({ itemId, go }: { itemId: string; go: (r: Route) => v
       </div>
       {store.storage.kind === "mac" && <p className="muted small">Drag pictures and recordings from Finder onto this page. They're moved into the day's folder.</p>}
 
-      <section className="body-section">
-        <div className="section-head">
-          <h3>Writing</h3>
-          <span className="row-actions">
-            <button className="small-button" onClick={() => setEditing((e) => !e)}>
-              {editing ? "Done" : "Edit"}
+      <section className="body-section day-body">
+        <div className="insert-bar" role="toolbar" aria-label="Insert">
+          <span className="eyebrow">Insert</span>
+          {INSERTS.map((k) => (
+            <button key={k.label} onClick={async () => add(await store.storage.pickFiles(k.only))}>
+              {k.label}
             </button>
-          </span>
+          ))}
         </div>
         {editing ? (
           <textarea
@@ -375,7 +291,7 @@ export function JournalDay({ itemId, go }: { itemId: string; go: (r: Route) => v
             className="body-input"
             value={text}
             autoFocus
-            placeholder="Write about your day. Paste a copied picture, or use + Add pictures, videos & audio, to put it exactly where the cursor is."
+            placeholder="Just type. Use Insert to put a picture, video or recording right where the cursor is, then keep typing."
             onChange={(e) => {
               setText(e.target.value);
               dirty.current = true;
@@ -403,69 +319,18 @@ export function JournalDay({ itemId, go }: { itemId: string; go: (r: Route) => v
               }
             }}
           />
-        ) : (
-          <div
-            className="markdown"
-            onDoubleClick={() => setEditing(true)}
-            dangerouslySetInnerHTML={{
-              __html: renderMarkdown(text || "*Nothing written yet. Double-click to write.*", (n) => urls[n]),
-            }}
-          />
+        ) : null}
+        {/\!\[[^\]]*\]\(/.test(text) && (
+          <div className="markdown day-preview" dangerouslySetInnerHTML={{ __html: renderMarkdown(text, (n) => urls[n]) }} />
         )}
       </section>
 
-      {unplaced.length > 0 && (
-        <section>
-          <h3>In this day's folder, not in the text yet</h3>
-          <ul className="list">
-            {unplaced.map((n) => {
-              const kind = kindOf(n);
-              return (
-                <li key={n} className="row journal-rec">
-                  <span className="row-title">{n}</span>
-                  {kind !== "other" && <Media path={join(dir, n)} name={n} kind={kind} />}
-                  <span className="right row-actions">
-                    {kind !== "other" ? (
-                      <button onClick={() => place([n])}>Put in text</button>
-                    ) : (
-                      <button onClick={() => store.storage.open(join(dir, n))}>Open</button>
-                    )}
-                    <button onClick={() => store.storage.reveal(join(dir, n))}>Show</button>
-                    <button onClick={() => remove(n)}>Remove</button>
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
     </div>
   );
 }
 
-/** A picture, video or audio player, shown through the window's file address. */
-function Media({ path, name, kind }: { path: string; name: string; kind: Exclude<MediaKind, "other"> }) {
-  const store = useStore();
-  const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => {
-    let alive = true;
-    store.storage.fileUrl(path).then((u) => alive && setUrl(u));
-    return () => {
-      alive = false;
-    };
-  }, [path, store.storage]);
-  if (!url) {
-    return (
-      <button className="bcard-file" onClick={() => store.storage.open(path)} title="Open">
-        <span className="bcard-file-icon">{kind === "image" ? "🖼️" : kind === "video" ? "🎬" : "🎙️"}</span>
-        <span>{name}</span>
-      </button>
-    );
-  }
-  if (kind === "video") return <video className="journal-img" controls preload="metadata" src={url} />;
-  return kind === "image" ? (
-    <img className="journal-img" src={url} alt={name} draggable={false} onDoubleClick={() => store.storage.open(path)} title="Double-click to open" />
-  ) : (
-    <audio controls preload="metadata" src={url} />
-  );
-}
+const INSERTS: { label: string; only: { name: string; extensions: string[] } }[] = [
+  { label: "Picture", only: { name: "Pictures", extensions: ["png", "jpg", "jpeg", "gif", "webp", "heic", "tiff"] } },
+  { label: "Video", only: { name: "Videos", extensions: ["mp4", "mov", "m4v", "webm"] } },
+  { label: "Audio", only: { name: "Audio", extensions: ["m4a", "mp3", "wav", "aac", "aiff", "caf"] } },
+];

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { fileName } from "../core/paths";
-import { displayValue, useStore, type Route } from "./hooks";
+import { displayValue, statusClass, useStore, type Route } from "./hooks";
 import { Modal } from "./Modal";
+import { CertificatePanel } from "./CertificatePanel";
 
 /**
  * A program (like "UX Certificate") is only a folder in Courses with course folders inside it.
@@ -41,7 +42,7 @@ export function ProgramView({ dir, go }: { dir: string; go: (r: Route) => void }
   }
 
   return (
-    <div className="page item-page">
+    <div className="page item-page course-page">
       <div className="crumbs">
         <button className="link" onClick={() => go({ view: "module", id: "courses" })}>
           🎓 Courses
@@ -54,9 +55,7 @@ export function ProgramView({ dir, go }: { dir: string; go: (r: Route) => void }
         onBlur={rename}
         onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
       />
-      <p className="muted small">
-        A program is a folder. Its courses are inside it. <span className="path">LifeOS/{dir}</span>
-      </p>
+      <p className="muted small">Program · {courses.length} course{courses.length === 1 ? "" : "s"}</p>
       <div className="actions">
         <button onClick={() => store.storage.reveal(dir)}>Show in Finder</button>
         <button className="primary" onClick={() => setAdding(true)}>
@@ -69,13 +68,21 @@ export function ProgramView({ dir, go }: { dir: string; go: (r: Route) => void }
         <ul className="list">
           {courses.map((c) => (
             <li key={c.id} className="row" onClick={() => go({ view: "item", id: c.id })}>
+              <span className="part-label muted small">{store.index.partLabel(c)}</span>
               <span className="row-title">{c.title}</span>
-              <span className="muted small">{store.index.partLabel(c)}</span>
-              <span className="muted small">{displayValue(c.fields["Instructor"])}</span>
+              <span className="muted small">
+                {(() => {
+                  const n = store.index.courseParts(c).filter((k) => k.kind === "lesson").length;
+                  return n ? `${n} lesson${n === 1 ? "" : "s"}` : "No lessons";
+                })()}
+              </span>
+              {c.fields["Status"] ? <span className={`status-pill ${statusClass(displayValue(c.fields["Status"]))}`}>{displayValue(c.fields["Status"])}</span> : null}
             </li>
           ))}
         </ul>
       </section>
+
+      <CertificatePanel dir={dir} onAdd={(p) => store.addCertificate({ programDir: dir }, p)} />
 
       {adding && (
         <Modal close={() => setAdding(false)}>

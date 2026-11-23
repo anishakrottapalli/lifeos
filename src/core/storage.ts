@@ -31,7 +31,8 @@ export interface Storage {
   open(path: string): Promise<void>;
   reveal(path: string): Promise<void>;
   pickFolder(): Promise<string | null>;
-  pickFiles(): Promise<string[]>;
+  /** Choose files to add. `only` limits the choice, e.g. just pictures. */
+  pickFiles(only?: { name: string; extensions: string[] }): Promise<string[]>;
   onChange(cb: () => void): () => void;
 }
 

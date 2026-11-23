@@ -7,6 +7,7 @@ export function Home({ go }: { go: (r: Route) => void }) {
   const [title, setTitle] = useState("");
   const recent = store.index.recent(10);
   const total = store.index.items.size;
+  const today = new Date();
 
   async function quickAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -18,8 +19,10 @@ export function Home({ go }: { go: (r: Route) => void }) {
 
   return (
     <div className="page">
-      <header className="page-head">
-        <h1>Home</h1>
+      <header className="page-head home-head">
+        <div className="eyebrow">Dashboard</div>
+        <h1 className="hero">{today.toLocaleDateString("en-GB", { weekday: "long" })}</h1>
+        <div className="hero-date">{today.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</div>
         <p className="muted">
           {total} item{total === 1 ? "" : "s"} in <code>{store.root}</code>
         </p>

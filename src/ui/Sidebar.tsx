@@ -1,4 +1,5 @@
 import { useStore, type Route } from "./hooks";
+import { Icon } from "./icons";
 
 export function Sidebar({
   route,
@@ -31,12 +32,12 @@ export function Sidebar({
         </button>
       </div>
       <button className="search-button" onClick={openSearch} title="Search">
-        <span className="search-icon">⌕</span>
+        <span className="search-icon"><Icon id="search" size={18} /></span>
         <span className="side-text grow">Search</span>
         <kbd className="side-text">⌘K</kbd>
       </button>
       <button className={`nav-item ${route.view === "home" ? "active" : ""}`} onClick={() => go({ view: "home" })} title="Home">
-          <span className="nav-icon">⌂</span> <span className="nav-label">Home</span>
+          <span className="nav-icon"><Icon id="home" /></span> <span className="nav-label">Home</span>
       </button>
       {store.modules
         .filter((m) => !m.hidden)
@@ -47,7 +48,7 @@ export function Sidebar({
             onClick={() => go({ view: "module", id: m.id })}
             title={collapsed ? m.name : m.description}
           >
-            <span className="nav-icon">{m.icon}</span>
+            <span className="nav-icon"><Icon id={m.id} fallback={m.icon} /></span>
             <span className="nav-label">{m.name}</span>
             {m.storage === "anywhere" && <span className="badge side-text" title="Anywhere group: syncs">☁</span>}
             {m.locked && <span className="badge side-text" title="Locked: private">🔒</span>}
@@ -56,7 +57,7 @@ export function Sidebar({
         ))}
       <div className="sidebar-foot">
         <button className={`nav-item ${route.view === "settings" ? "active" : ""}`} onClick={() => go({ view: "settings" })} title="Settings">
-          <span className="nav-icon">⚙</span> <span className="nav-label">Settings</span>
+          <span className="nav-icon"><Icon id="settings" /></span> <span className="nav-label">Settings</span>
         </button>
       </div>
     </nav>
