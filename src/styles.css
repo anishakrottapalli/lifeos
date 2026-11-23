@@ -468,3 +468,33 @@ h1, h1.hero, h1.day-title, .page-title-row h1, .course-page .title-input, .title
 .course-page .list .row-title { font-size: 18px; font-weight: 600; }
 .insert-bar button { display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border-radius: 999px; background: transparent; }
 .folder-icon { color: var(--muted); flex-shrink: 0; margin-right: 12px; vertical-align: -4px; }
+
+/* ---------- design refresh 3: breadcrumbs, course info row, project sidebar ---------- */
+.crumbs { gap: 8px; font-size: 14px; margin-bottom: 18px; flex-wrap: wrap; }
+.crumbs .link:hover { text-decoration: underline; }
+.crumb-step { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); }
+.crumb-here { color: var(--text); font-weight: 500; }
+.provider-badge {
+  display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 10px;
+  background: var(--chip); color: var(--text); font-weight: 700; font-size: 14px; flex-shrink: 0; align-self: flex-end; margin-bottom: 2px;
+}
+.course-page .fields.info-row .open-course {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 10px; height: 44px; padding: 0 20px; border-radius: 999px; font-size: 15px; font-weight: 500;
+}
+.project-nav { padding: 26px 18px 22px; gap: 2px; }
+.project-nav .crumbs { padding: 0 8px; font-size: 13px; gap: 6px; margin-bottom: 14px; }
+.project-title { font-family: var(--font-heading); font-weight: 500; font-size: 19px; letter-spacing: 0.04em; line-height: 1.25; padding: 0 8px; }
+.project-sub { padding: 6px 8px 14px; font-size: 13px; color: var(--muted); }
+.project-nav .nav-item { min-height: 34px; border-radius: 6px; gap: 10px; padding: 0 8px; }
+.project-nav .nav-group-title { padding: 18px 8px 8px; font-size: 12px; letter-spacing: 0.08em; }
+.project-nav .nav-icon { width: 16px; }
+
+.course-cols { display: flex; flex-wrap: wrap; gap: 22px 40px; align-items: stretch; }
+.course-cols > section { flex: 2 1 460px; min-width: 0; margin-bottom: 22px; }
+.course-cols > .certificate { flex: 1 1 340px; max-width: 460px; }
+.drop-zone {
+  min-height: 220px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 24px; text-align: center;
+  border: 1.5px dashed var(--line-strong); border-radius: var(--radius);
+}
+.drop-zone-icon { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 999px; background: var(--chip); margin-bottom: 8px; }
+.drop-area { min-height: 220px; }

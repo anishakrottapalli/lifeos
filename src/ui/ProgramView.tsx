@@ -45,8 +45,12 @@ export function ProgramView({ dir, go }: { dir: string; go: (r: Route) => void }
     <div className="page item-page course-page">
       <div className="crumbs">
         <button className="link" onClick={() => go({ view: "module", id: "courses" })}>
-          🎓 Courses
+          Courses
         </button>
+        <span className="crumb-step">
+          <span aria-hidden="true">›</span>
+          <span className="crumb-here">{fileName(dir)}</span>
+        </span>
       </div>
       <input
         className="title-input"

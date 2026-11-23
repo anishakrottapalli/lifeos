@@ -56,11 +56,11 @@ export function ProjectView({
       <aside className="project-nav">
         <div className="crumbs small">
           <button className="link" onClick={() => go({ view: "module", id: "projects" })}>
-            🗂️ Projects
+            Projects
           </button>
           {parents.map((p) => (
-            <span key={p.id}>
-              <span className="muted"> / </span>
+            <span key={p.id} className="crumb-step">
+              <span aria-hidden="true">›</span>
               <button className="link" onClick={() => go({ view: "item", id: p.id })}>
                 {p.title}
               </button>
@@ -68,10 +68,12 @@ export function ProjectView({
           ))}
         </div>
         <div className="project-title">{project.title}</div>
-        {project.fields["Status"] ? <span className="pill no-margin">{displayValue(project.fields["Status"])}</span> : null}
+        <div className="project-sub">
+          {[displayValue(project.fields["Type"]), displayValue(project.fields["Status"])].filter(Boolean).join(" · ")}
+        </div>
 
         <button className={`nav-item ${onBoard ? "active" : ""}`} onClick={() => go({ view: "item", id: project.id })}>
-          <span className="nav-label">🧩 Artboard</span>
+          <span className="nav-label">Artboard</span>
         </button>
         <button
           className={`nav-item ${selectedId === project.id && details && !hasOverviewTab ? "active" : ""}`}
@@ -87,7 +89,12 @@ export function ProjectView({
               const active = p.open.view === "item" && (p.open.page === "details" ? selectedId === project.id && details : selectedId === p.open.id);
               return (
                 <button key={p.key} className={`nav-item ${active ? "active" : ""}`} onClick={() => go(p.open)} title="Open this page">
-                  <span className="nav-label">📄 {p.title}</span>
+                  <span className="nav-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M7 3h7l5 5v13H7z M14 3v5h5" />
+                    </svg>
+                  </span>
+                  <span className="nav-label">{p.title}</span>
                 </button>
               );
             })}

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import type { Item } from "../core/types";
-import { fileName } from "../core/paths";
 import { useStore, type Route } from "./hooks";
 import { Modal } from "./Modal";
 
@@ -14,8 +13,6 @@ function countLabel(n: number, one: string, many: string) {
 
 export function CourseParts({ course, go, beforeChange }: { course: Item; go: (r: Route) => void; beforeChange: () => Promise<void> }) {
   const store = useStore();
-  const parent = store.index.courseParent(course);
-  const program = store.index.programOf(course);
   const kids = store.index.courseParts(course);
   const isLesson = course.kind === "lesson";
   const isClass = course.kind === "class";
@@ -24,18 +21,7 @@ export function CourseParts({ course, go, beforeChange }: { course: Item; go: (r
   const [adding, setAdding] = useState(false);
   const [title, setTitle] = useState("");
 
-  const back =
-    parent || program ? (
-      <p className="small">
-        <button
-          className="link"
-          onClick={() => (parent ? go({ view: "item", id: parent.id }) : go({ view: "program", dir: program! }))}
-        >
-          ← {parent ? parent.title : fileName(program!)}
-        </button>
-      </p>
-    ) : null;
-  if (isClass) return back;
+  if (isClass) return null;
 
   async function add() {
     if (!title.trim()) return;
@@ -50,7 +36,6 @@ export function CourseParts({ course, go, beforeChange }: { course: Item; go: (r
 
   return (
     <>
-      {back}
       <section>
         <div className="section-head">
           <h3>
