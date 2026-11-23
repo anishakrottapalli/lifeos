@@ -539,3 +539,37 @@ h1, h1.hero, h1.day-title, .page-title-row h1, .course-page .title-input, .title
 .dock-btn:hover { background: var(--hover); color: var(--text); }
 .dock-btn.on { background: var(--row-on); color: var(--text); }
 .board-zoom { position: absolute; right: 20px; bottom: 24px; z-index: 5; margin-left: 0; height: 40px; background: var(--dialog); }
+
+/* ---------- Board cards like the design ---------- */
+.bicon-img { color: var(--muted); font-size: 0; line-height: 0; display: flex; justify-content: center; }
+.bicon-label { margin-top: 6px; color: var(--text); }
+.bicon:hover, .bicon.selected { background: var(--hover); }
+/* notes */
+.bcard-type-text { background: var(--note); border: 1px solid var(--line); box-shadow: none; }
+.bcard-type-text .bcard-grip { border-bottom: none; padding: 12px 14px 0 18px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+.bcard-type-text .bcard-input { padding: 6px 18px 18px; font-size: 15px; line-height: 1.5; }
+.bcard-x { opacity: 0; }
+.bcard:hover .bcard-x, .bcard.selected .bcard-x { opacity: 1; }
+/* pictures and videos: no frame, the file name sits underneath */
+.bcard-type-file { background: transparent; border: none; box-shadow: none; overflow: visible; flex-direction: column-reverse; }
+.bcard-type-file .bcard-grip { border-bottom: none; padding: 8px 0 0; font-size: 12px; }
+.bcard-type-file .bcard-grip-label { color: var(--muted); }
+.media-frame { position: relative; border-radius: var(--radius); overflow: hidden; }
+.media-frame.media-video { background: #0a0715; border: 1px solid var(--line); }
+.bcard-type-file.selected .media-frame { overflow: visible; outline: 1.5px solid var(--accent-soft); }
+.bcard-type-file.selected .bcard-media { border-radius: var(--radius); }
+.handle { position: absolute; width: 8px; height: 8px; background: var(--bg); border: 1.5px solid var(--accent-soft); }
+.handle.tl { left: -4px; top: -4px; } .handle.tr { right: -4px; top: -4px; }
+.handle.bl { left: -4px; bottom: -4px; } .handle.br { right: -4px; bottom: -4px; }
+.bcard-type-file .bcard-resize { bottom: 22px; }
+/* Claude artifacts, chats and links */
+.bcard-type-embed { background: var(--note); border: 1px solid var(--line); box-shadow: none; }
+.bcard-type-embed .bcard-grip { padding: 8px 8px 8px 12px; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; }
+.bcard-grip-label { display: inline-flex; align-items: center; gap: 8px; }
+.bcard-embed { padding: 0; gap: 0; align-items: stretch; }
+.bcard-embed-chat, .bcard-embed-link { padding: 12px; gap: 6px; }
+.bcard-embed-title { font-size: 13px; font-weight: 500; line-height: 1.4; text-align: left; padding: 0; }
+.bcard-embed-artifact .bcard-embed-title { padding: 10px 12px; border-top: 1px solid var(--line); }
+.bcard-embed-artifact .bcard-embed-url { padding: 0 12px 10px; margin-top: -6px; }
+.embed-preview { height: 84px; padding: 12px; display: flex; flex-direction: column; gap: 7px; background: var(--panel); }
+.embed-preview span { display: block; height: 8px; background: var(--line-strong); }

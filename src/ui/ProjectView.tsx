@@ -8,7 +8,7 @@ const IMAGE = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp"];
 const VIDEO = [".mp4", ".mov", ".m4v", ".webm"];
 function iconFor(name: string) {
   const e = extName(name).toLowerCase();
-  return IMAGE.includes(e) ? "🖼️" : VIDEO.includes(e) ? "🎬" : [".md", ".markdown", ".txt"].includes(e) ? "📝" : "📎";
+  return IMAGE.includes(e) ? "M4 5h16v14H4z M4 16l5-5 4 4 3-3 4 4" : VIDEO.includes(e) ? "M4 6h16v12H4z M10 9.5l5 2.5-5 2.5z" : "M7 3h7l5 5v13H7z M14 3v5h5";
 }
 
 /**
@@ -90,9 +90,7 @@ export function ProjectView({
               return (
                 <button key={p.key} className={`nav-item ${active ? "active" : ""}`} onClick={() => go(p.open)} title="Open this page">
                   <span className="nav-icon">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                      <path d="M7 3h7l5 5v13H7z M14 3v5h5" />
-                    </svg>
+                    <MiniIcon d={DOC} />
                   </span>
                   <span className="nav-label">{p.title}</span>
                 </button>
@@ -106,16 +104,18 @@ export function ProjectView({
             <div className="nav-group-title">On the artboard</div>
             {project.files.map((f) => (
               <button key={"f:" + f} className="nav-item" onClick={() => showOnBoard("f:" + f)} title="Show on the artboard">
-                <span className="nav-label">
-                  {iconFor(f)} {f}
+                <span className="nav-icon">
+                  <MiniIcon d={iconFor(f)} />
                 </span>
+                <span className="nav-label">{f}</span>
               </button>
             ))}
             {textCards.map((c) => (
               <button key={"t:" + c.id} className="nav-item" onClick={() => showOnBoard("t:" + c.id)} title="Show on the artboard">
-                <span className="nav-label">
-                  {c.type === "embed" ? "🔗" : c.type === "section" ? "▭" : "📝"} {(c.text ?? "").trim().split("\n")[0].slice(0, 40) || (c.type === "section" ? "Section" : "Text")}
+                <span className="nav-icon">
+                  <MiniIcon d={c.type === "embed" ? "M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1 M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1" : c.type === "section" ? "M4 6h5 M4 6v12h16V6h-7 M4 6h16" : "M5 6h14 M12 6v13 M9 19h6"} />
                 </span>
+                <span className="nav-label">{(c.text ?? "").trim().split("\n")[0].slice(0, 40) || (c.type === "section" ? "Section" : "Text")}</span>
               </button>
             ))}
           </>
@@ -143,5 +143,16 @@ export function ProjectView({
       </div>
 
     </div>
+  );
+}
+
+const DOC = "M7 3h7l5 5v13H7z M14 3v5h5";
+function MiniIcon({ d }: { d: string }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {d.split(" M").map((seg, i) => (
+        <path key={i} d={(i === 0 ? "" : "M") + seg} />
+      ))}
+    </svg>
   );
 }

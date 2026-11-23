@@ -67,6 +67,11 @@ export function embedKind(url: string): "artifact" | "chat" | "link" {
   }
   return "link";
 }
+const EMBED_ICON = {
+  artifact: "M12 3v5 M12 16v5 M3 12h5 M16 12h5 M6 6l3 3 M15 15l3 3 M18 6l-3 3 M9 15l-3 3",
+  chat: "M4 5h16v11H9l-5 4V5z",
+  link: "M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1 M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1",
+} as const;
 const EMBED_LABEL = { artifact: "Claude artifact", chat: "Claude chat", link: "Link" } as const;
 
 /** The point on the edge of a box that faces another point (where an arrow starts or ends). */
@@ -770,7 +775,11 @@ export function Board({ project, go }: { project: Item; go: (r: Route) => void }
                   onPointerDown={(e) => (tool === "arrow" ? (e.stopPropagation(), pickForArrow(c)) : startDrag(e, c, "move", () => clickIcon(key, open)))}
                   title="Double-click to open · drag to move"
                 >
-                  <div className="bicon-img">{kind === "page" ? "📄" : kind === "markdown" ? "📝" : "📎"}</div>
+                  <div className="bicon-img">
+                    <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M7 3h7l5 5v13H7z M14 3v5h5" />
+                    </svg>
+                  </div>
                   <div className="bicon-label">{name}</div>
                   {isSel && c.type === "file" && (
                     <button className="bcard-x bicon-x" onPointerDown={(e) => e.stopPropagation()} onClick={() => remove(c)} title="Move to trash">
@@ -799,7 +808,14 @@ export function Board({ project, go }: { project: Item; go: (r: Route) => void }
                 }}
               >
                 <div className="bcard-grip" onPointerDown={(e) => startDrag(e, c, "move")} title="Drag to move">
-                  <span className="bcard-grip-label">{c.type === "file" ? c.file : c.type === "embed" ? EMBED_LABEL[c.embed ?? "link"] : "Text"}</span>
+                  <span className="bcard-grip-label">
+                    {c.type === "embed" && (
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d={EMBED_ICON[c.embed ?? "link"]} />
+                      </svg>
+                    )}
+                    {c.type === "file" ? c.file : c.type === "embed" ? EMBED_LABEL[c.embed ?? "link"] : "Text"}
+                  </span>
                   <button
                     className="bcard-x"
                     onPointerDown={(e) => e.stopPropagation()}
@@ -810,12 +826,21 @@ export function Board({ project, go }: { project: Item; go: (r: Route) => void }
                   </button>
                 </div>
                 {c.type === "embed" ? (
-                  <div className="bcard-embed">
-                    <div className="bcard-embed-title">{c.text}</div>
-                    <div className="muted small bcard-embed-url">{(() => { try { return new URL(c.url ?? "").hostname; } catch { return c.url; } })()}</div>
-                    <button className="small-button" onClick={() => c.url && store.storage.openUrl(c.url)}>
-                      Open in browser
+                  <div className={`bcard-embed bcard-embed-${c.embed ?? "link"}`}>
+                    {c.embed === "artifact" && (
+                      <div className="embed-preview" aria-hidden="true">
+                        <span style={{ width: "60%" }} />
+                        <span style={{ width: "90%" }} />
+                        <span style={{ width: "75%" }} />
+                        <span style={{ width: "40%" }} />
+                      </div>
+                    )}
+                    <button className="bcard-embed-title link" onPointerDown={(e) => e.stopPropagation()} onClick={() => c.url && store.storage.openUrl(c.url)} title="Open in your browser">
+                      {c.text}
                     </button>
+                    <div className="muted small bcard-embed-url">
+                      {c.embed === "link" ? (() => { try { return new URL(c.url ?? "").hostname; } catch { return c.url; } })() : "Opens in your browser"}
+                    </div>
                   </div>
                 ) : c.type === "text" ? (
                   <AutoText
@@ -823,7 +848,7 @@ export function Board({ project, go }: { project: Item; go: (r: Route) => void }
                     onChange={(text) => saveSoon(cardsRef.current.map((x) => (x.id === c.id ? { ...x, text } : x)))}
                   />
                 ) : (
-                  <FileBody path={join(dir, c.file ?? "")} name={c.file ?? ""} />
+                  <FileBody path={join(dir, c.file ?? "")} name={c.file ?? ""} selected={isSel} />
                 )}
                 <span className="bcard-resize" onPointerDown={(e) => startDrag(e, c, "resize")} />
               </div>
@@ -864,7 +889,7 @@ function AutoText({ value, onChange }: { value: string; onChange: (v: string) =>
 }
 
 /** A picture or video card on the artboard. */
-function FileBody({ path, name }: { path: string; name: string }) {
+function FileBody({ path, name, selected }: { path: string; name: string; selected: boolean }) {
   const store = useStore();
   const kind = fileKind(name);
   const [url, setUrl] = useState<string | null>(null);
@@ -877,10 +902,20 @@ function FileBody({ path, name }: { path: string; name: string }) {
   }, [path, store.storage]);
 
   if (kind === "image" && url) {
-    return <img className="bcard-media" src={url} alt={name} draggable={false} onDoubleClick={() => store.storage.open(path)} title="Double-click to open" />;
+    return (
+      <div className="media-frame">
+        <img className="bcard-media" src={url} alt={name} draggable={false} onDoubleClick={() => store.storage.open(path)} title="Double-click to open" />
+        {selected && <Handles />}
+      </div>
+    );
   }
   if (kind === "video" && url) {
-    return <video className="bcard-media" src={url} controls preload="metadata" />;
+    return (
+      <div className="media-frame media-video">
+        <video className="bcard-media" src={url} controls preload="metadata" />
+        {selected && <Handles />}
+      </div>
+    );
   }
   return (
     <button className="bcard-file" onClick={() => store.storage.open(path)} title="Open">
@@ -951,5 +986,16 @@ function DockIcon({ d }: { d: string }) {
         <path key={i} d={(i === 0 ? "" : "M") + seg} />
       ))}
     </svg>
+  );
+}
+
+function Handles() {
+  return (
+    <>
+      <span className="handle tl" />
+      <span className="handle tr" />
+      <span className="handle bl" />
+      <span className="handle br" />
+    </>
   );
 }
