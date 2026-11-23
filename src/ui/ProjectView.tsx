@@ -37,6 +37,8 @@ export function ProjectView({
     cur = store.index.parentProject(cur);
   }
   const onBoard = selectedId === project.id && !details;
+  const selectedKind = store.index.items.get(selectedId)?.kind;
+  const isPlainPage = selectedKind === "main" || selectedKind === "section" || selectedKind === "docs";
   const pages = projectPages(store.index, project);
 
   // Every project has a main.md (its details file); older projects get one the first time they open.
@@ -179,9 +181,11 @@ export function ProjectView({
           <Board project={project} go={go} />
         ) : (
           <>
-            <button className="link back-to-board small" onClick={() => go({ view: "item", id: project.id })}>
-              ← Artboard
-            </button>
+            {!isPlainPage && (
+              <button className="link back-to-board small" onClick={() => go({ view: "item", id: project.id })}>
+                ← Artboard
+              </button>
+            )}
             <ItemView key={selectedId + (details ? ":d" : "")} itemId={selectedId} go={go} embedded />
           </>
         )}

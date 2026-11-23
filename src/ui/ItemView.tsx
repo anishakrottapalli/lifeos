@@ -178,6 +178,54 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
   }
   addDropRef.current = addCourseFilesNow;
 
+  // A page of a project (Main, a section, Documentation) is just a Markdown editor.
+  if (plain) {
+    return (
+      <div className="plain-editor">
+        <div className="editor-bar">
+          <span className="editor-file">{fileName(draft.path)}</span>
+          <div className="editor-bar-right">
+            {isLog && (
+              <button
+                className="small-button"
+                title="Add a dated entry at the top of the build log"
+                onClick={() => {
+                  setPreview(false);
+                  change({ body: addLogEntry(latest.current!.body, today(), "##") }, { now: true });
+                }}
+              >
+                + Today's entry
+              </button>
+            )}
+            <span className="muted small">{status || "Saved"}</span>
+            <div className="seg" role="group" aria-label="View">
+              <button aria-pressed={!preview} className={!preview ? "on" : ""} onClick={() => setPreview(false)}>
+                Edit
+              </button>
+              <button aria-pressed={preview} className={preview ? "on" : ""} onClick={() => setPreview(true)}>
+                Preview
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="editor-page">
+          {preview ? (
+            <div className="markdown editor-text" dangerouslySetInnerHTML={{ __html: renderMarkdown(draft.body || "*Nothing written yet.*") }} />
+          ) : (
+            <textarea
+              className="editor-text"
+              aria-label="Page text"
+              value={draft.body}
+              autoFocus
+              placeholder="Write anything. Markdown works: # headings, - lists, **bold**."
+              onChange={(e) => change({ body: e.target.value })}
+            />
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`page item-page ${embedded ? "embedded" : ""} ${plain ? "plain-editor" : ""} ${dropping ? "dropping" : ""} ${isCourse ? "course-page" : ""}`}>
       <div className="crumbs">

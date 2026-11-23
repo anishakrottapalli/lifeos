@@ -585,12 +585,22 @@ h1, h1.hero, h1.day-title, .page-title-row h1, .course-page .title-input, .title
 .bcard-type-text:hover .bcard-grip, .bcard-type-text.selected .bcard-grip { opacity: 1; }
 .bcard-type-text .bcard-grip-label { display: none; }
 .bcard-type-text .bcard-input { padding: 4px 6px; font-size: 15px; line-height: 1.5; }
-/* A page (Main, a section, Documentation) opens as a plain Markdown editor. */
-.item-page.plain-editor .title-input { font-size: 22px; margin-bottom: 4px; }
-.item-page.plain-editor .crumbs > :not(.status) { display: none; }
-.item-page.plain-editor .body-input { min-height: 60vh; border: none; background: transparent; padding-left: 0; padding-right: 0; }
 /* The project's name, type and status sit at the top of its sidebar. */
 .project-title-input { border: none; background: transparent; width: 100%; font: inherit; font-weight: 650; padding: 2px 0; color: inherit; }
 .project-title-input:focus { outline: 1px solid var(--accent); border-radius: 4px; }
 .project-settings { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 10px; }
 .project-delete { margin-top: 16px; opacity: 0.7; }
+
+/* A page of a project is just a Markdown editor (like the design): a thin bar, then one writing column. */
+.plain-editor { display: flex; flex-direction: column; min-height: 100%; }
+.editor-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 32px; border-bottom: 1px solid var(--line); }
+.editor-file { font-size: 14px; color: var(--muted); }
+.editor-bar-right { display: flex; align-items: center; gap: 16px; }
+.seg { display: flex; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.seg button { height: 34px; padding: 0 16px; border: none; border-radius: 0; background: transparent; color: var(--muted); font-size: 13px; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.on { background: var(--row-on); color: var(--text); }
+.editor-page { flex: 1; padding: 40px 32px 56px; }
+.editor-text { display: block; width: 100%; max-width: 760px; margin: 0 auto; min-height: 70vh; font-size: 17px; line-height: 1.75; color: var(--text); border: none; background: transparent; padding: 0; resize: none; outline: none; }
+.editor-text:focus { border: none; }
+.markdown.editor-text { min-height: 0; background: transparent; border: none; border-radius: 0; padding: 0; }
