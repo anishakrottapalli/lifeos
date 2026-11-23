@@ -354,7 +354,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
 
       {!isProject && !isCourse && <TagInput tags={draft.tags} all={store.index.allTags()} onChange={(tags) => change({ tags }, { now: true })} />}
 
-      {(!isProject || hasOverview(draft.body)) && (draft.module !== "courses" || isLesson) && (
+      {(!isProject || hasOverview(draft.body)) && draft.module !== "courses" && (
       <section className="body-section">
         <div className="section-head">
           <h3>{isLog ? "Notes and build log" : "Notes"}</h3>
