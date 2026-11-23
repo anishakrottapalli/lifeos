@@ -12,7 +12,7 @@ import { hasOverview } from "../core/projects";
 const SAVE_DELAY = 700;
 
 /** Section and Documentation pages keep their names; projects rename by moving their whole folder. */
-const fixedName = (i: Item) => i.kind === "section" || i.kind === "docs";
+const fixedName = (i: Item) => i.kind === "section" || i.kind === "docs" || i.kind === "main";
 
 export function ItemView({ itemId, go, embedded = false }: { itemId: string; go: (r: Route) => void; embedded?: boolean }) {
   const store = useStore();
@@ -129,6 +129,8 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
   const isLesson = draft.module === "courses" && (draft.kind === "lesson" || (!draft.kind && !!store.index.courseParent(draft)));
   const shownFields = isProject ? mod.fields : isLesson || draft.kind === "class" ? mod.fields.filter((f) => f.key === "Status") : !draft.kind ? mod.fields : [];
   const owner = store.index.projectFor(draft);
+  // Main, a section and Documentation open as a plain Markdown editor (the project's own settings are in its sidebar).
+  const plain = embedded && (draft.kind === "main" || draft.kind === "section" || draft.kind === "docs");
   const backlinks = store.index.backlinks(draft.id);
   const folders = store.index.subfolders(draft.module);
   const dir = dirName(draft.path);
@@ -177,7 +179,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
   addDropRef.current = addCourseFilesNow;
 
   return (
-    <div className={`page item-page ${embedded ? "embedded" : ""} ${dropping ? "dropping" : ""} ${isCourse ? "course-page" : ""}`}>
+    <div className={`page item-page ${embedded ? "embedded" : ""} ${plain ? "plain-editor" : ""} ${dropping ? "dropping" : ""} ${isCourse ? "course-page" : ""}`}>
       <div className="crumbs">
         {!embedded && isCourse && (
           <>
@@ -352,12 +354,12 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
         />
       )}
 
-      {!isProject && !isCourse && <TagInput tags={draft.tags} all={store.index.allTags()} onChange={(tags) => change({ tags }, { now: true })} />}
+      {!plain && !isProject && !isCourse && <TagInput tags={draft.tags} all={store.index.allTags()} onChange={(tags) => change({ tags }, { now: true })} />}
 
       {(!isProject || hasOverview(draft.body)) && draft.module !== "courses" && (
       <section className="body-section">
         <div className="section-head">
-          <h3>{isLog ? "Notes and build log" : "Notes"}</h3>
+          {plain ? <span /> : <h3>{isLog ? "Notes and build log" : "Notes"}</h3>}
           <span className="row-actions">
             {isLog && (
               <button
@@ -504,6 +506,8 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
       )}
       </div>
 
+      {!plain && (
+      <>
       <section>
         <div className="section-head">
           <h3>Links</h3>
@@ -570,6 +574,8 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
         <span>Created {draft.created || "—"}</span>
         <span>Updated {timeAgo(draft.updated)}</span>
       </footer>
+      </>
+      )}
 
       {linking && (
         <LinkPicker
@@ -588,7 +594,7 @@ export function ItemView({ itemId, go, embedded = false }: { itemId: string; go:
   );
 }
 
-function FieldInput({ def, value, onChange }: { def: FieldDef; value: unknown; onChange: (v: unknown) => void }) {
+export function FieldInput({ def, value, onChange }: { def: FieldDef; value: unknown; onChange: (v: unknown) => void }) {
   const label = <span className="field-label">{def.key}</span>;
   switch (def.type) {
     case "longtext":

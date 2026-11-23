@@ -8,7 +8,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { BoardCard, Item } from "../core/types";
 import type { LifeIndex } from "../core/index";
 import { dirName, extName, join } from "../core/paths";
-import { ALL_PARTS, DOCS_KEY, OVERVIEW_KEY, VENTURE_PART_KEYS, hasOverview } from "../core/projects";
+import { ALL_PARTS, DOCS_KEY, MAIN_KEY, OVERVIEW_KEY, VENTURE_PART_KEYS, hasLeanCanvas, hasOverview } from "../core/projects";
 import { inTauri } from "../core/storage";
 import { newId } from "../core/ids";
 import { useStore, type Route } from "./hooks";
@@ -94,11 +94,13 @@ export interface PageInfo {
   open: Route;
 }
 
-/** The project's pages, in order: Overview (when it has one), its sections, then Documentation. */
+/** The project's pages, in order: Main (its details file, main.md), its sections, then Documentation. */
 export function projectPages(index: LifeIndex, project: Item): PageInfo[] {
   const parts = index.partsOf(project);
   const pages: PageInfo[] = [];
-  if (hasOverview(project.body)) pages.push({ key: OVERVIEW_KEY, title: "Overview", open: { view: "item", id: project.id, page: "details" } });
+  if (parts.main) pages.push({ key: MAIN_KEY, title: "Main", open: { view: "item", id: parts.main.id } });
+  // Only a project that has no main.md yet (it is made the first time the project opens) shows its own text as the Overview.
+  else if (hasOverview(project.body)) pages.push({ key: OVERVIEW_KEY, title: "Overview", open: { view: "item", id: project.id, page: "details" } });
   for (const s of parts.sections) pages.push({ key: s.id, title: s.title, open: { view: "item", id: s.id } });
   if (parts.docs) pages.push({ key: parts.docs.id, title: "Documentation", open: { view: "item", id: parts.docs.id } });
   return pages;
@@ -518,7 +520,7 @@ export function Board({ project, go }: { project: Item; go: (r: Route) => void }
   // ---------- adding a section ----------
   const haveSections = new Set(parts.sections.map((s) => s.path.split("/").pop()!.replace(/\.md$/, "")));
   const missingParts = ALL_PARTS.filter((p) =>
-    p.key === OVERVIEW_KEY ? !hasOverview(project.body) : p.key === DOCS_KEY ? !parts.docs : !haveSections.has(p.key),
+    p.key === OVERVIEW_KEY ? !hasLeanCanvas(parts.main ? parts.main.body : project.body) : p.key === DOCS_KEY ? !parts.docs : !haveSections.has(p.key),
   );
 
   const width = Math.max(2400, ...cards.map((c) => c.x + (c.w ?? 240) + 400));
@@ -552,7 +554,6 @@ export function Board({ project, go }: { project: Item; go: (r: Route) => void }
         )}
         <span className="muted small board-status">{status}</span>
         <span className="right">
-          <button onClick={() => go({ view: "item", id: project.id, page: "details" })}>Details</button>
           <button onClick={() => store.storage.reveal(dir)}>Show in Finder</button>
         </span>
       </div>
@@ -814,7 +815,7 @@ export function Board({ project, go }: { project: Item; go: (r: Route) => void }
                         <path d={EMBED_ICON[c.embed ?? "link"]} />
                       </svg>
                     )}
-                    {c.type === "file" ? c.file : c.type === "embed" ? EMBED_LABEL[c.embed ?? "link"] : "Text"}
+                    {c.type === "file" ? c.file : c.type === "embed" ? EMBED_LABEL[c.embed ?? "link"] : ""}
                   </span>
                   <button
                     className="bcard-x"
@@ -880,7 +881,7 @@ function AutoText({ value, onChange }: { value: string; onChange: (v: string) =>
       ref={ref}
       className="bcard-input"
       value={value}
-      placeholder="Type here…"
+      placeholder="Type something"
       autoFocus={!value}
       onChange={(e) => onChange(e.target.value)}
       rows={2}

@@ -12,7 +12,7 @@
 // Sub-projects are folders inside a project folder. Module pages don't get the
 // Venture sections (only projects do).
 
-export type ProjectKind = "project" | "section" | "docs" | "module";
+export type ProjectKind = "project" | "section" | "docs" | "module" | "main";
 
 export interface SectionDef {
   /** File name without .md, also the section title. */
@@ -185,6 +185,16 @@ export const SECTIONS: SectionDef[] = [
   },
 ];
 
+/** Every project's details file, `main.md`: what the project is, its goals and notes. */
+export const MAIN_FILE = "main";
+export const MAIN_KEY = "main";
+export const MAIN_TEMPLATE = `What this project is, in one or two sentences.
+
+## Goals
+
+## Notes
+`;
+
 export const DOCS_FILE = "Documentation";
 
 export function buildLogEntry(date: string, first = false): string {
@@ -246,6 +256,11 @@ export const VENTURE_PART_KEYS: PartKey[] = [OVERVIEW_KEY, ...SECTIONS.map((s) =
 /** Top folders inside Projects for each kind of project. */
 export const PROJECT_GROUPS = { Personal: "Personal", Venture: "Ventures" } as const;
 export type ProjectGroup = keyof typeof PROJECT_GROUPS;
+
+/** True when a project's details text (main.md, or an older project's own text) has a lean canvas. */
+export function hasLeanCanvas(text: string): boolean {
+  return text.includes("## Lean canvas");
+}
 
 /** True when a project's Overview text has been started (so it shows on the Board). */
 export function hasOverview(body: string): boolean {

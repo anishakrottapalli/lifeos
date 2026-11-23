@@ -1,8 +1,10 @@
+import { useEffect, useState } from "react";
 import type { Item } from "../core/types";
-import { displayValue, useStore, type Route } from "./hooks";
-import { ItemView } from "./ItemView";
+import { useStore, type Route } from "./hooks";
+import { FieldInput, ItemView } from "./ItemView";
 import { Board, projectPages } from "./Board";
-import { extName } from "../core/paths";
+import { dirName, extName } from "../core/paths";
+import { VENTURE_PART_KEYS, OVERVIEW_KEY, hasLeanCanvas } from "../core/projects";
 
 const IMAGE = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp"];
 const VIDEO = [".mp4", ".mov", ".m4v", ".webm"];
@@ -36,12 +38,30 @@ export function ProjectView({
   }
   const onBoard = selectedId === project.id && !details;
   const pages = projectPages(store.index, project);
-  const hasOverviewTab = pages.some((p) => p.open.view === "item" && p.open.page === "details");
+
+  // Every project has a main.md (its details file); older projects get one the first time they open.
+  useEffect(() => {
+    store.ensureMain(project).catch(() => {});
+  }, [store, project.id]);
 
   /** Select something on the artboard (going back to the artboard first if a page is open). */
   function showOnBoard(key: string) {
     if (!onBoard) go({ view: "item", id: project.id });
     setTimeout(() => window.dispatchEvent(new CustomEvent("board-select", { detail: key })), onBoard ? 0 : 200);
+  }
+  // The Venture Ideation System is added from here after the project exists (not when it is created).
+  const haveSections = new Set(parts.sections.map((s) => s.path.split("/").pop()!.replace(/\.md$/, "")));
+  const missingVenture = VENTURE_PART_KEYS.filter((k) =>
+    k === OVERVIEW_KEY ? !hasLeanCanvas(parts.main ? parts.main.body : project.body) : !haveSections.has(k),
+  );
+  const [addingVenture, setAddingVenture] = useState(false);
+  async function addVenture() {
+    setAddingVenture(true);
+    try {
+      for (const k of missingVenture) await store.addPart(store.index.items.get(project.id) ?? project, k);
+    } finally {
+      setAddingVenture(false);
+    }
   }
   const textCards = (project.board ?? []).filter((c) => c.type === "text" || c.type === "embed" || c.type === "section");
 
@@ -67,24 +87,38 @@ export function ProjectView({
             </span>
           ))}
         </div>
-        <div className="project-title">{project.title}</div>
-        <div className="project-sub">
-          {[displayValue(project.fields["Type"]), displayValue(project.fields["Status"])].filter(Boolean).join(" · ")}
+        <input
+          className="project-title project-title-input"
+          key={project.title}
+          defaultValue={project.title}
+          aria-label="Project name"
+          onBlur={async (e) => {
+            const t = e.target.value.trim();
+            const o = store.index.items.get(project.id) ?? project;
+            if (t && t !== o.title) await store.moveProject({ ...o, title: t }, t, dirName(o.folder));
+          }}
+        />
+        <div className="project-settings">
+          {(store.module("projects")?.fields ?? []).map((f) => (
+            <FieldInput
+              key={f.key}
+              def={f}
+              value={project.fields[f.key]}
+              onChange={(v) => {
+                const o = store.index.items.get(project.id) ?? project;
+                store.saveItem({ ...o, fields: { ...o.fields, [f.key]: v } });
+              }}
+            />
+          ))}
         </div>
 
         <button className={`nav-item ${onBoard ? "active" : ""}`} onClick={() => go({ view: "item", id: project.id })}>
           <span className="nav-label">Artboard</span>
         </button>
-        <button
-          className={`nav-item ${selectedId === project.id && details && !hasOverviewTab ? "active" : ""}`}
-          onClick={() => go({ view: "item", id: project.id, page: "details" })}
-        >
-          <span className="nav-label">Details</span>
-        </button>
 
-        {pages.length > 0 && (
+        {(pages.length > 0 || project.files.length > 0 || textCards.length > 0) && (
           <>
-            <div className="nav-group-title">Pages</div>
+            <div className="nav-group-title">On the artboard</div>
             {pages.map((p) => {
               const active = p.open.view === "item" && (p.open.page === "details" ? selectedId === project.id && details : selectedId === p.open.id);
               return (
@@ -96,12 +130,6 @@ export function ProjectView({
                 </button>
               );
             })}
-          </>
-        )}
-
-        {(project.files.length > 0 || textCards.length > 0) && (
-          <>
-            <div className="nav-group-title">On the artboard</div>
             {project.files.map((f) => (
               <button key={"f:" + f} className="nav-item" onClick={() => showOnBoard("f:" + f)} title="Show on the artboard">
                 <span className="nav-icon">
@@ -121,12 +149,29 @@ export function ProjectView({
           </>
         )}
 
+        {missingVenture.length > 0 && (
+          <button className="nav-item" disabled={addingVenture} onClick={addVenture} title="Adds the Overview (lean canvas), Market Research, Customer Development, UI/UX, Planning, Marketing, Operations, Funding, Financials and a Deck">
+            <span className="nav-label">{addingVenture ? "Adding…" : "+ Add the Venture Ideation System"}</span>
+          </button>
+        )}
+
         {parts.notes.length > 0 && (
           <>
             <div className="nav-group-title">Other notes</div>
             {parts.notes.map((n) => navItem(n, n.title))}
           </>
         )}
+        <button
+          className="nav-item danger project-delete"
+          onClick={async () => {
+            if (!confirm(`Move the whole "${project.title}" project folder (its pages, modules and sub-projects) to LifeOS's trash? (It's kept in LifeOS/.trash.)`)) return;
+            const parent = store.index.parentProject(project);
+            await store.deleteProject(store.index.items.get(project.id) ?? project);
+            go(parent ? { view: "item", id: parent.id } : { view: "module", id: "projects" });
+          }}
+        >
+          <span className="nav-label">Delete project</span>
+        </button>
       </aside>
 
       <div className={`project-main ${onBoard ? "on-board" : ""}`}>
