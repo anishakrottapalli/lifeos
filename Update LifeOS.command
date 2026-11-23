@@ -21,6 +21,8 @@ echo ""
 
 if [ -d .git ]; then
   echo "1/4  Getting the newest version from GitHub…"
+  # The "fetching the pieces" step can rewrite this list on your Mac, which would block the download. It's safe to reset.
+  git checkout -- package-lock.json >/dev/null 2>&1
   git pull --ff-only || fail "couldn't download the newest version."
 else
   echo "1/4  (This copy came from a ZIP, so it can't download updates by itself."
