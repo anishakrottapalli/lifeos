@@ -815,7 +815,7 @@ export function Board({ project, go }: { project: Item; go: (r: Route) => void }
                         <path d={EMBED_ICON[c.embed ?? "link"]} />
                       </svg>
                     )}
-                    {c.type === "file" ? c.file : c.type === "embed" ? EMBED_LABEL[c.embed ?? "link"] : "Text"}
+                    {c.type === "file" ? c.file : c.type === "embed" ? EMBED_LABEL[c.embed ?? "link"] : ""}
                   </span>
                   <button
                     className="bcard-x"
@@ -881,7 +881,7 @@ function AutoText({ value, onChange }: { value: string; onChange: (v: string) =>
       ref={ref}
       className="bcard-input"
       value={value}
-      placeholder="Type here…"
+      placeholder="Type something"
       autoFocus={!value}
       onChange={(e) => onChange(e.target.value)}
       rows={2}

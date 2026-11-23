@@ -573,3 +573,24 @@ h1, h1.hero, h1.day-title, .page-title-row h1, .course-page .title-input, .title
 .bcard-embed-artifact .bcard-embed-url { padding: 0 12px 10px; margin-top: -6px; }
 .embed-preview { height: 84px; padding: 12px; display: flex; flex-direction: column; gap: 7px; background: var(--panel); }
 .embed-preview span { display: block; height: 8px; background: var(--line-strong); }
+
+/* Text on the artboard works like Figma: no label or box, just the words. The frame and the small drag bar show on hover or when selected. */
+.bcard-type-text { background: transparent; border: 1px solid transparent; overflow: visible; }
+.bcard-type-text:hover { border-color: var(--line); }
+.bcard-type-text.selected { border-color: var(--accent); }
+.bcard-type-text .bcard-grip {
+  position: absolute; left: -1px; right: -1px; top: -22px; height: 22px; padding: 0 2px 0 6px; justify-content: flex-end;
+  border: none; opacity: 0; background: var(--hover); border-radius: var(--radius) var(--radius) 0 0;
+}
+.bcard-type-text:hover .bcard-grip, .bcard-type-text.selected .bcard-grip { opacity: 1; }
+.bcard-type-text .bcard-grip-label { display: none; }
+.bcard-type-text .bcard-input { padding: 4px 6px; font-size: 15px; line-height: 1.5; }
+/* A page (Main, a section, Documentation) opens as a plain Markdown editor. */
+.item-page.plain-editor .title-input { font-size: 22px; margin-bottom: 4px; }
+.item-page.plain-editor .crumbs > :not(.status) { display: none; }
+.item-page.plain-editor .body-input { min-height: 60vh; border: none; background: transparent; padding-left: 0; padding-right: 0; }
+/* The project's name, type and status sit at the top of its sidebar. */
+.project-title-input { border: none; background: transparent; width: 100%; font: inherit; font-weight: 650; padding: 2px 0; color: inherit; }
+.project-title-input:focus { outline: 1px solid var(--accent); border-radius: 4px; }
+.project-settings { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 10px; }
+.project-delete { margin-top: 16px; opacity: 0.7; }

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import type { Item } from "../core/types";
-import { displayValue, useStore, type Route } from "./hooks";
-import { ItemView } from "./ItemView";
+import { useStore, type Route } from "./hooks";
+import { FieldInput, ItemView } from "./ItemView";
 import { Board, projectPages } from "./Board";
-import { extName } from "../core/paths";
+import { dirName, extName } from "../core/paths";
 import { VENTURE_PART_KEYS, OVERVIEW_KEY, hasLeanCanvas } from "../core/projects";
 
 const IMAGE = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".bmp"];
@@ -87,9 +87,29 @@ export function ProjectView({
             </span>
           ))}
         </div>
-        <div className="project-title">{project.title}</div>
-        <div className="project-sub">
-          {[displayValue(project.fields["Type"]), displayValue(project.fields["Status"])].filter(Boolean).join(" · ")}
+        <input
+          className="project-title project-title-input"
+          key={project.title}
+          defaultValue={project.title}
+          aria-label="Project name"
+          onBlur={async (e) => {
+            const t = e.target.value.trim();
+            const o = store.index.items.get(project.id) ?? project;
+            if (t && t !== o.title) await store.moveProject({ ...o, title: t }, t, dirName(o.folder));
+          }}
+        />
+        <div className="project-settings">
+          {(store.module("projects")?.fields ?? []).map((f) => (
+            <FieldInput
+              key={f.key}
+              def={f}
+              value={project.fields[f.key]}
+              onChange={(v) => {
+                const o = store.index.items.get(project.id) ?? project;
+                store.saveItem({ ...o, fields: { ...o.fields, [f.key]: v } });
+              }}
+            />
+          ))}
         </div>
 
         <button className={`nav-item ${onBoard ? "active" : ""}`} onClick={() => go({ view: "item", id: project.id })}>
@@ -141,6 +161,17 @@ export function ProjectView({
             {parts.notes.map((n) => navItem(n, n.title))}
           </>
         )}
+        <button
+          className="nav-item danger project-delete"
+          onClick={async () => {
+            if (!confirm(`Move the whole "${project.title}" project folder (its pages, modules and sub-projects) to LifeOS's trash? (It's kept in LifeOS/.trash.)`)) return;
+            const parent = store.index.parentProject(project);
+            await store.deleteProject(store.index.items.get(project.id) ?? project);
+            go(parent ? { view: "item", id: parent.id } : { view: "module", id: "projects" });
+          }}
+        >
+          <span className="nav-label">Delete project</span>
+        </button>
       </aside>
 
       <div className={`project-main ${onBoard ? "on-board" : ""}`}>
