@@ -23,7 +23,7 @@ function classCount(store: ReturnType<typeof useStore>, lesson: Item): number {
 export function CourseParts({ course, go, beforeChange }: { course: Item; go: (r: Route) => void; beforeChange: () => Promise<void> }) {
   const store = useStore();
   const kids = store.index.courseParts(course);
-  const isLesson = course.kind === "lesson";
+  const isLesson = course.kind === "lesson" || (!course.kind && !!store.index.courseParent(course));
   const isClass = course.kind === "class";
   const childKind = isLesson ? "class" : "lesson";
   const lessons = kids.filter((c) => c.kind === childKind);
