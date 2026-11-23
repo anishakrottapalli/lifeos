@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { useStore } from "./hooks";
 
+declare const __BUILD__: string;
+const BUILD = typeof __BUILD__ === "string" ? __BUILD__ : "preview";
+
 export function SettingsView() {
   const store = useStore();
   const [msg, setMsg] = useState("");
@@ -10,6 +13,13 @@ export function SettingsView() {
       <header className="page-head">
         <h1>Settings</h1>
       </header>
+
+      <section className="card">
+        <h3>This version of LifeOS</h3>
+        <p className="muted small">
+          <code>{BUILD}</code>
+        </p>
+      </section>
 
       <section className="card">
         <h3>LifeOS folder</h3>
